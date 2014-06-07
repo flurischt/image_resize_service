@@ -1,7 +1,7 @@
 image_resize_service
 ========
 a flask based webapp to resize images. specify a project and some image dimensions (production.cfg), put your images into the source directory and then use image_name@dimension.extension in your applications or webapps to get resized images.
-you won't get images that exactly match the configured dimension but all images will fit into the configured bounding box.
+depending on your images you won't get images that exactly match the configured dimension but all images will fit into the bounding box.
 
 Requirements available in pip:
  - Pillow
@@ -17,8 +17,8 @@ Installation (OSX)
 brew install libjpeg
 
 for the python dependencies you might want to use virtualenv:
-virtualenv test_env
-source test_env/bin/activate 
+ - virtualenv test_env
+ - source test_env/bin/activate 
 
 and then:
 pip install flask Pillow
