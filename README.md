@@ -39,8 +39,7 @@ on apache this could be implemented using .htaccess and some rewrite if not exis
 TODO
 -----
  - currently image_resize_service will always output "image/jpeg" the file extension is just ignored...
- - add some info on how to run this app using a webserver
- - abstract _path_to_image and the file access to a storage class and remove local file storage dependence (appengine, heroku) 
+ - add some info on how to run this app using a webserver 
  
 License
 -------
