@@ -52,10 +52,11 @@ on apache this could be implemented using .htaccess and some rewrite if not exis
 
 App engine
 --- 
-you need to deploy this application and also the required libraries. the following commands install the requirements into a lib/ dir and push them too.
+you need to deploy this application and also the required libraries inside the lib/ folder. 
+DO NOT install Pillow into lib/. use virtualenv for development or install it globally on your machine. but not on app engine.
  - make sure the required libraries are installed in the lib/ folder (see USAGE above)
  - add your own application id to app.yaml (replace image-resize-service on the first line)
- - appcfg.py update .
+ - deploy using "appcfg.py update ."
 
 TODO
 -----
