@@ -36,13 +36,14 @@ class APITestCase(unittest.TestCase):
 
     def test_correct_mimetype(self):
         """make sure we get a jpeg image and it's dimension fits the configuration"""
-        rv = self.app.get('/img/demo_project/welcome@small.jpg')
-        im = Image.open(io.BytesIO(rv.data))
-        max_width, max_height = img_service.app.config['PROJECTS']['demo_project']['small']
-        self.assertEqual(rv.status_code, 200)
-        self.assertEqual(rv.mimetype, 'image/jpeg')
-        self.assertEqual(im.format, 'JPEG')
-        self.assertTrue(im.size[0] <= max_width and im.size[1] <= max_height)
+        for dimension_name, dimension in img_service.app.config['PROJECTS']['demo_project'].items():
+            rv = self.app.get('/img/demo_project/welcome@' + dimension_name + '.jpg')
+            im = Image.open(io.BytesIO(rv.data))
+            max_width, max_height = dimension
+            self.assertEqual(rv.status_code, 200)
+            self.assertEqual(rv.mimetype, 'image/jpeg')
+            self.assertEqual(im.format, 'JPEG')
+            self.assertTrue(im.size[0] <= max_width and im.size[1] <= max_height)
 
 
 if __name__ == '__main__':
