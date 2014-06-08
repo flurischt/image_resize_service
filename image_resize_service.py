@@ -7,7 +7,8 @@ from PIL import Image
 
 
 app = Flask(__name__)
-
+config = op.join(app.root_path, 'production.cfg')
+app.config.from_pyfile(config)
 
 def _path_to_image(name, extension, project, size=None, join_path=False):
     """
@@ -90,6 +91,4 @@ def serve_image(project, name, size, extension):
 
 
 if __name__ == '__main__':
-    config = op.join(app.root_path, 'production.cfg')
-    app.config.from_pyfile(config)
     app.run()
