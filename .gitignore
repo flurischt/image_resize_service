@@ -1,2 +1,9 @@
+# ide stuff
 .idea/
 *.iml
+
+# test images
+demo_image_dir/resized/*/*.jpg
+
+# local temp documents
+doc/
