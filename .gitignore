@@ -7,3 +7,5 @@ demo_image_dir/resized/*/*.jpg
 
 # local temp documents
 doc/
+
+lib/

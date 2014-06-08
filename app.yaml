@@ -1,0 +1,13 @@
+application: image-resize-service
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: yes
+
+handlers:
+- url: .*
+  script: image_resize_service.app
+
+libraries:
+- name: PIL
+  version: latest

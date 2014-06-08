@@ -1,5 +1,7 @@
 import os.path as op
 import io
+import tempfile
+from image_storage import ImageStorage
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, send_file, safe_join
 from werkzeug.exceptions import NotFound
@@ -9,25 +11,6 @@ from PIL import Image
 app = Flask(__name__)
 config = op.join(app.root_path, 'production.cfg')
 app.config.from_pyfile(config)
-
-
-class ImageStorage(object):
-    """represents an image storage"""
-
-    @staticmethod
-    def exists(cls, project, name, extension, size=None):
-        """true if image is in this storage, false otherwise"""
-        raise NotImplemented()
-
-    @staticmethod
-    def save(cls, project, name, extension, binary_image_data, size=None):
-        """saves the binary_image_data by creating or overwriting the project-name-extension-size images"""
-        raise NotImplemented()
-
-    @staticmethod
-    def get(cls, project, name, extension, size=None):
-        """returns a filedescriptor to the image (file, or io)"""
-        raise NotImplemented()
 
 
 class FileImageStorage(ImageStorage):
@@ -64,11 +47,17 @@ class FileImageStorage(ImageStorage):
         directory = directory + '/' + project
         return safe_join(directory, filename)
 
+__storage = None
+if app.config['STORAGE'] == 'FILESYSTEM':
+    __storage = FileImageStorage
+elif app.config['STORAGE'] == 'APPENGINE':
+    from image_storage_appengine import DatastoreImageStore
+    __storage = DatastoreImageStore
 
 def _storage():
+    global __storage
     """returns access to the storage (save(), get() and exists())"""
-    # TODO make this configurable
-    return FileImageStorage
+    return __storage
 
 
 def _calc_size(target_size, image):
@@ -98,10 +87,12 @@ def _resize_image(project, name, extension, size):
         raise NotFound()
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(_calc_size(app.config['PROJECTS'][project][size], im))
-    target_image = io.BytesIO()
+    #target_image = io.BytesIO()  # app engines PIL version has trouble with this...
+    target_image = tempfile.TemporaryFile()
     im.save(target_image, 'JPEG')
     target_image.seek(0)
     _storage().save(project, name, extension, target_image.read(), size)
+    target_image.close()
 
 
 @app.route('/')

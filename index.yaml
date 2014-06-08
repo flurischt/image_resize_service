@@ -1,0 +1,10 @@
+indexes:
+
+- kind: Image
+  ancestor: no
+  properties:
+  - name: project
+  - name: name
+  - name: extension
+  - name: size
+
