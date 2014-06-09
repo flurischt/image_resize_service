@@ -1,9 +1,7 @@
 import os.path as op
-import io
 import tempfile
-from image_storage import ImageStorage
-from werkzeug.utils import secure_filename
-from flask import Flask, render_template, send_file, safe_join
+
+from flask import Flask, render_template, send_file
 from werkzeug.exceptions import NotFound
 from PIL import Image
 
@@ -13,54 +11,19 @@ config = op.join(app.root_path, 'production.cfg')
 app.config.from_pyfile(config)
 __storage = None
 
-class FileImageStorage(ImageStorage):
-    @staticmethod
-    def exists(project, name, extension, size=None):
-        return op.isfile(FileImageStorage._path_to_image(project, name, extension, size=size))
-
-    @staticmethod
-    def save(project, name, extension, binary_image_data, size=None):
-        with open(FileImageStorage._path_to_image(project, name, extension, size), 'wb') as f:
-            f.write(binary_image_data)
-
-    @staticmethod
-    def get(project, name, extension, size=None):
-        filename = FileImageStorage._path_to_image(project, name, extension, size)
-        if op.isfile(filename):
-            return file(filename, 'rb')
-        else:
-            raise NotFound()
-
-    @staticmethod
-    def _path_to_image(project, name, extension, size=None):
-        """
-        constructs a path to an image.
-        if a size is set, this returns a path to resized_dir. otherwise a path to source_dir is returned.
-        :param name: the image name (the leading part before the dimension and without extension)
-        :param extension: the file extension of the image. probably jpg
-        :param project: the project name THIS FUNCTION DOES NOT CHECK IF THAT PROJECT EXISTS
-        :param size: a tuple containing max_width and max_height as ints
-        :return: the path to the image
-        """
-        if size:
-            filename = secure_filename('%s_%s.%s' % (name, size, extension))
-            directory = app.config['FILESYSTEM_STORAGE_RESIZED_DIR']
-        else:
-            filename = secure_filename(name + '.' + extension)
-            directory = app.config['FILESYSTEM_STORAGE_SOURCE_DIR']
-        directory = directory + '/' + project
-        return safe_join(directory, filename)
-
 
 def _storage():
     """returns access to the storage (save(), get() and exists())"""
     global __storage
     if not __storage:
         if app.config['STORAGE'] == 'FILESYSTEM':
-            __storage = FileImageStorage
+            from storage.filesystem import FileImageStorage
+            __storage = FileImageStorage(app.config['FILESYSTEM_STORAGE_SOURCE_DIR'],
+                                         app.config['FILESYSTEM_STORAGE_RESIZED_DIR'])
         elif app.config['STORAGE'] == 'APPENGINE':
-            from image_storage_appengine import DatastoreImageStore
-            __storage = DatastoreImageStore
+            from storage.appengine_datastore import DatastoreImageStorage
+
+            __storage = DatastoreImageStorage()
     return __storage
 
 
@@ -91,7 +54,7 @@ def _resize_image(project, name, extension, size):
         raise NotFound()
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(_calc_size(app.config['PROJECTS'][project][size], im))
-    #target_image = io.BytesIO()  # app engines PIL version has trouble with this...
+    # target_image = io.BytesIO()  # app engines PIL version has trouble with this...
     target_image = tempfile.TemporaryFile()
     im.save(target_image, 'JPEG')
     target_image.seek(0)

@@ -8,6 +8,8 @@ import sys
 from PIL import Image
 from werkzeug.exceptions import NotFound
 
+from storage.filesystem import FileImageStorage
+
 import image_resize_service as img_service
 
 
@@ -15,28 +17,29 @@ try:
     # noinspection PyUnresolvedReferences
     from google.appengine.ext import testbed
 
-    APPENGINE_AVAILABLE = True
+    APP_ENGINE_AVAILABLE = True
 except ImportError:
-    APPENGINE_AVAILABLE = False
+    APP_ENGINE_AVAILABLE = False
     sys.stderr.write('App engine not available. Datastore tests are NOT run.\n')
 
 
 class APITestCase(unittest.TestCase):
     """tests the HTTP API using the configured storage
-       make sure to configure STORAGE=APPENGINE if you run the code in the dev_appserver or on appspot.
+       make sure to configure STORAGE=APP_ENGINE if you run the code in the dev_appserver or on appspot.
        otherwise you'll get readonly filesystem errors.
     """
 
     def setUp(self):
         img_service.app.config['TESTING'] = True
         self.app = img_service.app.test_client()
-        if APPENGINE_AVAILABLE:
+        if APP_ENGINE_AVAILABLE:
+            # storage=appengine needs this
             self.testbed = testbed.Testbed()
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
 
     def tearDown(self):
-        if APPENGINE_AVAILABLE:
+        if APP_ENGINE_AVAILABLE:
             self.testbed.deactivate()
 
     def test_index(self):
@@ -78,7 +81,9 @@ class FSStorageTestCase(unittest.TestCase):
     """
 
     def setUp(self):
-        self.storage = img_service.FileImageStorage
+        self.storage = FileImageStorage(
+            img_service.app.config['FILESYSTEM_STORAGE_SOURCE_DIR'],
+            img_service.app.config['FILESYSTEM_STORAGE_RESIZED_DIR'])
 
     def tearDown(self):
         pass
@@ -175,7 +180,7 @@ class FSStorageTestCase(unittest.TestCase):
         return d.hexdigest()
 
 
-if APPENGINE_AVAILABLE:
+if APP_ENGINE_AVAILABLE:
     """run all the storage tests on the appengine datastore too"""
 
     class DatastoreStorageTestCase(FSStorageTestCase):
@@ -184,9 +189,9 @@ if APPENGINE_AVAILABLE:
             self.testbed = testbed.Testbed()
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
-            from image_storage_appengine import DatastoreImageStore  # must be imported AFTER creating a testbed
+            from storage.appengine_datastore import DatastoreImageStorage  # must be imported AFTER creating a testbed
 
-            self.storage = DatastoreImageStore
+            self.storage = DatastoreImageStorage()
             # put the demo_image into the datastore
             f = file('demo_image_dir/images/demo_project/welcome.jpg', 'r')
             self.storage.save('demo_project', 'welcome', 'jpg', f.read())

@@ -4,6 +4,7 @@
 
 # test images
 demo_image_dir/resized/*/*.jpg
+demo_image_dir/images/demo_project/overwrite_test.jpg
 
 # local temp documents
 doc/
