@@ -1,20 +1,33 @@
-import image_resize_service as img_service
 import unittest
 import io
+import image_resize_service as img_service
 from PIL import Image
+
+try:
+    from google.appengine.ext import testbed
+
+    APPENGINE_AVAILABLE = True
+except ImportError:
+    APPENGINE_AVAILABLE = False
 
 
 class APITestCase(unittest.TestCase):
-    """tests the API using the FILESYSTEM storage"""
+    """tests the HTTP API using the configured storage
+       make sure to configure STORAGE=APPENGINE if you run the code in the dev_appserver or on appspot.
+       otherwise you'll get readonly filesystem errors.
+    """
+
     def setUp(self):
         img_service.app.config['TESTING'] = True
-        img_service.app.config['STORAGE'] = 'FILESYSTEM'
         self.app = img_service.app.test_client()
+        if APPENGINE_AVAILABLE:
+            self.testbed = testbed.Testbed()
+            self.testbed.activate()
+            self.testbed.init_datastore_v3_stub()
 
     def tearDown(self):
-        # os.close(self.db_fd)
-        # os.unlink(img_service.app.config['DATABASE'])
-        pass
+        if APPENGINE_AVAILABLE:
+            self.testbed.deactivate()
 
     def test_index(self):
         """content doesn't matter. just make sure there is always a welcome page"""
