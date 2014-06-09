@@ -1,9 +1,11 @@
 import os.path as op
 import tempfile
 
-from flask import Flask, render_template, send_file
+from functools import wraps
+from flask import Flask, render_template, send_file, request, redirect, url_for, Response
 from werkzeug.exceptions import NotFound
 from PIL import Image
+from werkzeug.utils import secure_filename
 
 
 app = Flask(__name__)
@@ -53,7 +55,7 @@ def _resize_image(project, name, extension, size):
     if not _storage().exists(project, name, extension):
         raise NotFound()
     im = Image.open(_storage().get(project, name, extension))
-    im = im.resize(_calc_size(app.config['PROJECTS'][project][size], im))
+    im = im.resize(_calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
     # target_image = io.BytesIO()  # app engines PIL version has trouble with this...
     target_image = tempfile.TemporaryFile()
     im.save(target_image, 'JPEG')
@@ -62,13 +64,55 @@ def _resize_image(project, name, extension, size):
     target_image.close()
 
 
+def _serve_image(project, name, size, extension):
+    if not project in app.config['PROJECTS'] \
+            or (size and not size in app.config['PROJECTS'][project]['dimensions']):
+        raise NotFound()
+    if not _storage().exists(project, name, extension, size):
+        _resize_image(project, name, extension, size)
+    return send_file(_storage().get(project, name, extension, size), mimetype='image/jpeg')
+
+
+def _check_auth(username, password):
+    """This function is called to check if a username /
+    password combination is valid.
+    """
+    if not request.form['project'] in app.config['PROJECTS']:
+        return False
+    correct_user, correct_pass = app.config['PROJECTS'][request.form['project']]['auth']
+    return username == correct_user and password == correct_pass
+
+
+def _authenticate():
+    """Sends a 401 response that enables basic auth"""
+    return Response(
+        'Could not verify your access level for that URL.\n'
+        'You have to login with proper credentials', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not _check_auth(auth.username, auth.password):
+            return _authenticate()
+        return f(*args, **kwargs)
+    return decorated
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 
+@app.route('/img/<project>/<name>.<extension>', methods=['GET'])
+def serve_original_image(project, name, extension):
+    return _serve_image(project, name, None, extension)
+
+
 @app.route('/img/<project>/<name>@<size>.<extension>', methods=['GET'])
-def serve_image(project, name, size, extension):
+def serve_resized_image(project, name, size, extension):
     """
     serves the url /img/project/name@size.extension e.g /img/demo_project/welcome@small.jpg
     either returns an image of mimetype image/jpeg or a NotFound() 404 error
@@ -78,12 +122,31 @@ def serve_image(project, name, size, extension):
     :param extension: the image file extension
     :return: an image or a 404 error
     """
-    if not project in app.config['PROJECTS'] or not size in app.config['PROJECTS'][project]:
-        raise NotFound()
-    if not _storage().exists(project, name, extension, size):
-        _resize_image(project, name, extension, size)
-    return send_file(_storage().get(project, name, extension, size), mimetype='image/jpeg')
+    return _serve_image(project, name, size, extension)
+
+@app.route('/uploadform', methods=['GET'])
+def upload_form():
+    return render_template('upload.html')
+
+@app.route('/upload', methods=['POST'])
+@requires_auth
+def upload_image():
+    uploaded_file = request.files['file']
+    project = request.form['project']
+    if not project in app.config['PROJECTS']:
+        return 'project is not configured!'
+    if uploaded_file: #and allowed_file(file.filename):
+        filename, extension = secure_filename(uploaded_file.filename).rsplit('.', 1)
+        uploaded_file.seek(0)
+        im = Image.open(uploaded_file)
+        jpg_image = tempfile.TemporaryFile()
+        im.save(jpg_image, 'JPEG')
+        jpg_image.seek(0)
+        _storage().save(project, filename, extension, jpg_image.read())
+        return redirect(url_for('serve_original_image', project=project, name=filename, extension=extension))
 
 
 if __name__ == '__main__':
+    if app.config['STORAGE'] == 'APPENGINE':
+        raise Exception('cannot use flask dev server and app engine storage! check production.cfg')
     app.run()

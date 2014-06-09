@@ -64,7 +64,7 @@ class APITestCase(unittest.TestCase):
 
     def test_correct_mimetype(self):
         """make sure we get a jpeg image and it's dimension fits the configuration"""
-        for dimension_name, dimension in img_service.app.config['PROJECTS']['demo_project'].items():
+        for dimension_name, dimension in img_service.app.config['PROJECTS']['demo_project']['dimensions'].items():
             rv = self.app.get('/img/demo_project/welcome@' + dimension_name + '.jpg')
             im = Image.open(io.BytesIO(rv.data))
             max_width, max_height = dimension

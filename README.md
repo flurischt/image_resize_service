@@ -58,6 +58,23 @@ DO NOT install Pillow into lib/. use virtualenv for development or install it gl
  - add your own application id to app.yaml (replace image-resize-service on the first line)
  - deploy using "appcfg.py update ."
 
+API
+-----
+resizing images
+---
+GET /img/PROJECTNAME/image_name_without_extension@dimension.extension
+
+uploading images
+---
+POST /upload
+project=THE_NAME_OF_THE_PROJECT
+file=your image
+
+enctype must be "multipart/form-data"
+check /uploadform to see an example
+
+/upload is HTTP basic protected. you need to use the username/password configured in production.cfg
+
 TODO
 -----
  - currently image_resize_service will always output "image/jpeg" the file extension is just ignored...

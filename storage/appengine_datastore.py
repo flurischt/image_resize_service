@@ -50,11 +50,3 @@ class DatastoreImageStorage(ImageStorage):
             return ''
         else:
             return size
-
-# TODO evil stuff here... rewrite
-# do an initial datastore update to push the model into the database
-# this way the app engine admin interface displays the model...
-if not DatastoreImageStorage().exists('demo_project', 'welcome', 'jpg'):
-    f = file('demo_image_dir/images/demo_project/welcome.jpg', 'r')
-    DatastoreImageStorage().save('demo_project', 'welcome', 'jpg', f.read())
-    f.close()
