@@ -61,7 +61,8 @@ def _resize_image(project, name, extension, size):
     im.save(target_image, 'JPEG')
     target_image.seek(0)
     _storage().save(project, name, extension, target_image.read(), size)
-    target_image.close()
+    target_image.seek(0)
+    return target_image
 
 
 def _serve_image(project, name, size, extension):
@@ -69,7 +70,8 @@ def _serve_image(project, name, size, extension):
             or (size and not size in app.config['PROJECTS'][project]['dimensions']):
         raise NotFound()
     if not _storage().exists(project, name, extension, size):
-        _resize_image(project, name, extension, size)
+        image = _resize_image(project, name, extension, size)
+        return send_file(image, mimetype='image/jpeg')
     return send_file(_storage().get(project, name, extension, size), mimetype='image/jpeg')
 
 
