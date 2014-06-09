@@ -5,8 +5,10 @@ from PIL import Image
 
 
 class APITestCase(unittest.TestCase):
+    """tests the API using the FILESYSTEM storage"""
     def setUp(self):
         img_service.app.config['TESTING'] = True
+        img_service.app.config['STORAGE'] = 'FILESYSTEM'
         self.app = img_service.app.test_client()
 
     def tearDown(self):

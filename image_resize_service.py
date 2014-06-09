@@ -11,7 +11,7 @@ from PIL import Image
 app = Flask(__name__)
 config = op.join(app.root_path, 'production.cfg')
 app.config.from_pyfile(config)
-
+__storage = None
 
 class FileImageStorage(ImageStorage):
     @staticmethod
@@ -40,23 +40,23 @@ class FileImageStorage(ImageStorage):
         """
         if size:
             filename = secure_filename('%s_%s.%s' % (name, size, extension))
-            directory = app.config['RESIZED_DIR']
+            directory = app.config['FILESYSTEM_STORAGE_RESIZED_DIR']
         else:
             filename = secure_filename(name + '.' + extension)
-            directory = app.config['SOURCE_DIR']
+            directory = app.config['FILESYSTEM_STORAGE_SOURCE_DIR']
         directory = directory + '/' + project
         return safe_join(directory, filename)
 
-__storage = None
-if app.config['STORAGE'] == 'FILESYSTEM':
-    __storage = FileImageStorage
-elif app.config['STORAGE'] == 'APPENGINE':
-    from image_storage_appengine import DatastoreImageStore
-    __storage = DatastoreImageStore
 
 def _storage():
-    global __storage
     """returns access to the storage (save(), get() and exists())"""
+    global __storage
+    if not __storage:
+        if app.config['STORAGE'] == 'FILESYSTEM':
+            __storage = FileImageStorage
+        elif app.config['STORAGE'] == 'APPENGINE':
+            from image_storage_appengine import DatastoreImageStore
+            __storage = DatastoreImageStore
     return __storage
 
 
