@@ -14,28 +14,32 @@ class Image(db.Model):
 
 class DatastoreImageStore(ImageStorage):
     @staticmethod
-    def exists(project, name, extension, size=None):
+    def _get_single_image(project, name, extension, size=None):
         im = Image.gql("WHERE project = :1 AND name = :2 AND extension = :3 AND size = :4",
                        project, name, extension, DatastoreImageStore._size_for_query(size)
         )
-        if not im.get():
+        return im.get()
+
+    @staticmethod
+    def exists(project, name, extension, size=None):
+        if not DatastoreImageStore._get_single_image(project, name, extension, size):
             return False
         else:
             return True
 
     @staticmethod
     def save(project, name, extension, binary_image_data, size=None):
-        new_im = Image(project=project, name=name, extension=extension, size=DatastoreImageStore._size_for_query(size),
-                       image_data=binary_image_data
-        )
-        new_im.put()
+        im = DatastoreImageStore._get_single_image(project, name, extension, size)
+        if not im:
+            im = Image(project=project, name=name, extension=extension, size=DatastoreImageStore._size_for_query(size),
+                           image_data=binary_image_data
+            )
+        im.image_data = binary_image_data
+        im.put()
 
     @staticmethod
     def get(project, name, extension, size=None):
-        images = Image.gql("WHERE project = :1 AND name = :2 AND extension = :3 AND size = :4",
-                           project, name, extension, DatastoreImageStore._size_for_query(size)
-        )
-        im = images.get()
+        im = DatastoreImageStore._get_single_image(project, name, extension, size)
         if not im:
             raise NotFound()
         fd = io.BytesIO(im.image_data)

@@ -20,12 +20,16 @@ class FileImageStorage(ImageStorage):
 
     @staticmethod
     def save(project, name, extension, binary_image_data, size=None):
-        with open(FileImageStorage._path_to_image(project, name, extension, size), 'w') as f:
+        with open(FileImageStorage._path_to_image(project, name, extension, size), 'wb') as f:
             f.write(binary_image_data)
 
     @staticmethod
     def get(project, name, extension, size=None):
-        return file(FileImageStorage._path_to_image(project, name, extension, size), 'r')
+        filename = FileImageStorage._path_to_image(project, name, extension, size)
+        if op.isfile(filename):
+            return file(filename, 'rb')
+        else:
+            raise NotFound()
 
     @staticmethod
     def _path_to_image(project, name, extension, size=None):
