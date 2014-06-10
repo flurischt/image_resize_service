@@ -7,6 +7,7 @@ threadsafe: yes
 handlers:
 - url: .*
   script: image_resize_service.app
+  secure: always
 
 libraries:
 - name: PIL
