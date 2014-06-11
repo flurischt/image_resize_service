@@ -4,14 +4,26 @@ import random
 import unittest
 import io
 import sys
+import os
 
 from PIL import Image
 from werkzeug.exceptions import NotFound
 
 from storage.filesystem import FileImageStorage
-
 import image_resize_service as img_service
 
+
+if 'RUNNING_ON_TRAVIS_CI' in os.environ:
+    """we're on travis ci!
+       let's check if there is a appengine sdk directory. if so, add the libs to the pythonpath and therefore
+       enable the datastore tests too.
+    """
+    sdk_dir = './google_appengine'
+    if os.path.isdir(sdk_dir):
+        sys.path.append(sdk_dir)
+        for library in os.listdir(sdk_dir + '/lib'):
+            if os.path.isdir(sdk_dir + '/lib/' + library):
+                sys.path.append(sdk_dir + '/lib/' + library)
 
 try:
     # noinspection PyUnresolvedReferences
