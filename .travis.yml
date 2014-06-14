@@ -7,4 +7,10 @@ before_script:
  - unzip -q google_appengine_1.9.6.zip 
 
 install: pip install -r requirements_travis.txt
-script: RUNNING_ON_TRAVIS_CI=1 python ./test_image_resize_service.py
+script: 
+# run api and storage tests using storage=filesystem
+ - RUNNING_ON_TRAVIS_CI=1 python ./test_image_resize_service.py
+# enable the datastore storage and run the test again
+ - sed -e 's/FILESYSTEM/APPENGINE/' production.cfg > production.cfg
+ - RUNNING_ON_TRAVIS_CI=1 python ./test_image_resize_service.py
+
