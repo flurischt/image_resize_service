@@ -3,7 +3,7 @@ import tempfile
 import io
 
 from functools import wraps
-from flask import Flask, render_template, send_file, request, redirect, url_for, Response
+from flask import Flask, render_template, send_file, request, redirect, url_for, Response, jsonify
 from werkzeug.exceptions import NotFound
 from PIL import Image
 from werkzeug.utils import secure_filename
@@ -21,6 +21,7 @@ def _storage():
     if not __storage:
         if app.config['STORAGE'] == 'FILESYSTEM':
             from storage.filesystem import FileImageStorage
+
             __storage = FileImageStorage(app.config['FILESYSTEM_STORAGE_SOURCE_DIR'],
                                          app.config['FILESYSTEM_STORAGE_RESIZED_DIR'])
         elif app.config['STORAGE'] == 'APPENGINE':
@@ -58,7 +59,7 @@ def _resize_image(project, name, extension, size):
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(_calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
     # target_image = io.BytesIO()  # app engines PIL version has trouble with this...
-    appengine_fix = tempfile.TemporaryFile()  #  we therefore need to use a tempfile
+    appengine_fix = tempfile.TemporaryFile()  # we therefore need to use a tempfile
     im.save(appengine_fix, 'JPEG')
     appengine_fix.seek(0)
     _storage().save(project, name, extension, appengine_fix.read(), size)
@@ -93,7 +94,7 @@ def _authenticate():
     """Sends a 401 response that enables basic auth"""
     return Response(
         'Could not verify your access level for that URL.\n'
-        'You have to login with proper credentials', 401,
+        'You have to login with proper credentials and a valid PROJECT in your request', 401,
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 
@@ -104,6 +105,7 @@ def requires_auth(f):
         if not auth or not _check_auth(auth.username, auth.password):
             return _authenticate()
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -130,9 +132,16 @@ def serve_resized_image(project, name, size, extension):
     """
     return _serve_image(project, name, size, extension)
 
+
 @app.route('/uploadform', methods=['GET'])
 def upload_form():
     return render_template('upload.html')
+
+
+def json_response(content, http_statuscode=200):
+    resp = jsonify(content)
+    resp.status_code = http_statuscode
+    return resp
 
 @app.route('/upload', methods=['POST'])
 @requires_auth
@@ -140,16 +149,40 @@ def upload_image():
     uploaded_file = request.files['file']
     project = request.form['project']
     if not project in app.config['PROJECTS']:
-        return 'project is not configured!'
-    if uploaded_file: #and allowed_file(file.filename):
+        # as long as this function is @requires_auth protected this cannot happen
+        # you cannot login with a wrong project. code stays to protect uploads anyway.
+        return json_response({
+            'status': 'fail',
+            'message': 'project is not configured!'
+        }, 500)
+    if uploaded_file:
         filename, extension = secure_filename(uploaded_file.filename).rsplit('.', 1)
-        uploaded_file.seek(0)
-        im = Image.open(uploaded_file)
-        jpg_image = tempfile.TemporaryFile()
-        im.save(jpg_image, 'JPEG')
-        jpg_image.seek(0)
-        _storage().save(project, filename, extension, jpg_image.read())
-        return redirect(url_for('serve_original_image', project=project, name=filename, extension=extension))
+        if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
+            return json_response({
+                'status': 'fail',
+                'message': 'unsupported image file extension. check ALLOWED_EXTENSIONS'
+            }, 500)
+        try:
+            uploaded_file.seek(0)
+            im = Image.open(uploaded_file)
+            jpg_image = tempfile.TemporaryFile()
+            im.save(jpg_image, 'JPEG')
+            jpg_image.seek(0)
+            _storage().save(project, filename, extension, jpg_image.read())
+            return json_response({
+                'status': 'ok',
+                'url': url_for('serve_original_image', project=project, name=filename, extension=extension)
+            })
+        except IOError:
+            return json_response({
+                'status' : 'fail',
+                'message' : 'your uploaded binary data does not represent a recognized image format.'
+            }, 500)
+    else:
+        return json_response({
+            'status': 'fail',
+            'message': 'no image uploaded!'
+        }, 500)
 
 
 if __name__ == '__main__':

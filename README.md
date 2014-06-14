@@ -76,6 +76,8 @@ enctype must be "multipart/form-data"
 check /uploadform to see an example
 
 /upload is HTTP basic protected. you need to use the username/password configured in production.cfg
+Output is json containing either { 'status' : 'OK', 'url' : 'url_to_uploaded_fullsize_image' } (HTTP Statuscode 200)
+or { 'status' : 'fail', 'message' : 'some_error_message' } (HTTP Statuscode 500)
 
 TODO
 -----
