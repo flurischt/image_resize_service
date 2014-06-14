@@ -83,8 +83,8 @@ TODO
 -----
  - currently image_resize_service will always output "image/jpeg" the file extension is just ignored...
  - add some info on how to run this app using a webserver
- - write a frontend for uploading source_images and make the projects and dimensions configurable AND remove the hack in storage/appengine_datastore...
- 
+ - make the projects and dimensions configurable 
+
 License
 -------
 BSD 2-Clause, see the LICENSE file
