@@ -220,8 +220,6 @@ class FSStorageTestCase(unittest.TestCase):
         self.storage = FileImageStorage(
             img_service.app.config['FILESYSTEM_STORAGE_SOURCE_DIR'],
             img_service.app.config['FILESYSTEM_STORAGE_RESIZED_DIR'])
-        # add an image for testing to the storage. (useless in FSStorage, but needed for empty storages)
-        _add_test_image_to_storage(self.storage, 'demo_project', 'welcome', 'jpg')
 
     def tearDown(self):
         pass
@@ -328,8 +326,8 @@ if APP_ENGINE_AVAILABLE:
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
             from storage.appengine_datastore import DatastoreImageStorage  # must be imported AFTER creating a testbed
-
             self.storage = DatastoreImageStorage()
+            _add_test_image_to_storage(self.storage, 'demo_project', 'welcome', 'jpg')
 
         def tearDown(self):
             self.testbed.deactivate()
