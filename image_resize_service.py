@@ -109,6 +109,14 @@ def requires_auth(f):
     return decorated
 
 
+def _upload_json_response(success, **kwargs):
+    res_dict = dict(status='ok' if success else 'fail')
+    res_dict.update(kwargs)
+    response = jsonify(res_dict)
+    response.status_code = 200 if success else 500
+    return response
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -138,11 +146,6 @@ def upload_form():
     return render_template('upload.html')
 
 
-def json_response(content, http_statuscode=200):
-    resp = jsonify(content)
-    resp.status_code = http_statuscode
-    return resp
-
 @app.route('/upload', methods=['POST'])
 @requires_auth
 def upload_image():
@@ -151,17 +154,11 @@ def upload_image():
     if not project in app.config['PROJECTS']:
         # as long as this function is @requires_auth protected this cannot happen
         # you cannot login with a wrong project. code stays to protect uploads anyway.
-        return json_response({
-            'status': 'fail',
-            'message': 'project is not configured!'
-        }, 500)
+        return _upload_json_response(False, message='project is not configured!')
     if uploaded_file:
         filename, extension = secure_filename(uploaded_file.filename).rsplit('.', 1)
         if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
-            return json_response({
-                'status': 'fail',
-                'message': 'unsupported image file extension. check ALLOWED_EXTENSIONS'
-            }, 500)
+            return _upload_json_response(False, message='unsupported image file extension. check ALLOWED_EXTENSIONS')
         try:
             uploaded_file.seek(0)
             im = Image.open(uploaded_file)
@@ -169,20 +166,14 @@ def upload_image():
             im.save(jpg_image, 'JPEG')
             jpg_image.seek(0)
             _storage().save(project, filename, extension, jpg_image.read())
-            return json_response({
-                'status': 'ok',
-                'url': url_for('serve_original_image', project=project, name=filename, extension=extension)
-            })
+            return _upload_json_response(True,
+                                 url=url_for('serve_original_image', project=project, name=filename,
+                                             extension=extension))
         except IOError:
-            return json_response({
-                'status' : 'fail',
-                'message' : 'your uploaded binary data does not represent a recognized image format.'
-            }, 500)
+            return _upload_json_response(False,
+                                 message='your uploaded binary data does not represent a recognized image format.')
     else:
-        return json_response({
-            'status': 'fail',
-            'message': 'no image uploaded!'
-        }, 500)
+        return _upload_json_response(False, message='no image uploaded!')
 
 
 if __name__ == '__main__':
