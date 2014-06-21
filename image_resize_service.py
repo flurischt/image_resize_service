@@ -60,7 +60,7 @@ def _resize_image(project, name, extension, size):
     _storage().save_image(project, name, extension, im, size)
     return_img = tempfile.TemporaryFile()
     im.save(return_img, 'JPEG')
-    return_img.seek()
+    return_img.seek(0)
     return return_img
 
 
