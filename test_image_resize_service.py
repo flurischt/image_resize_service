@@ -1,6 +1,5 @@
 import base64
-from functools import partial
-import hashlib
+
 import json
 import random
 import unittest
@@ -253,55 +252,39 @@ class FSStorageTestCase(unittest.TestCase):
            must overwrite the image
         """
         im = Image.open(self.storage.get('demo_project', 'welcome', 'jpg'))
-        new_img = io.BytesIO()
-        im.save(new_img, 'JPEG')
-        new_img.seek(0)
         # save two new images in the storage
-        self.storage.save('demo_project', 'overwrite_test', 'jpg', new_img.read())
-        new_img.seek(0)
-        self.storage.save('demo_project', 'overwrite_test', 'jpg', new_img.read(), size='imaginary_size')
-        new_img.close()
+        self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im)
+        self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im, size='imaginary_size')
         # now overwrite them with an image of another size
         new_width = 15
         new_height = 15
-        resized_img_file = io.BytesIO()
         resized_img = im.resize((new_width, new_height))
-        resized_img.save(resized_img_file, 'JPEG')
-        resized_img_file.seek(0)
         self.assertEqual((new_width, new_height), resized_img.size)
-        self.storage.save('demo_project', 'overwrite_test', 'jpg', resized_img_file.read())
-        resized_img_file.seek(0)
-        self.storage.save('demo_project', 'overwrite_test', 'jpg', resized_img_file.read(), size='imaginary_size')
-        # check that the new image has new_width and new_height
-        new_fd = self.storage.get('demo_project', 'overwrite_test', 'jpg')
-        new_fd_imaginary = self.storage.get('demo_project', 'overwrite_test', 'jpg', 'imaginary_size')
-        new_im = Image.open(new_fd)
-        self.assertEqual((new_width, new_height), new_im.size)
-        self.assertEqual(self._md5sum_from_file(new_fd), self._md5sum_from_file(resized_img_file))
-        self.assertEqual(self._md5sum_from_file(new_fd_imaginary), self._md5sum_from_file(resized_img_file))
-        new_fd.close()
-        new_fd_imaginary.close()
-        resized_img_file.close()
+        self.storage.save_image('demo_project', 'overwrite_test', 'jpg', resized_img)
+        self.storage.save_image('demo_project', 'overwrite_test', 'jpg', resized_img, size='imaginary_size')
+        # check that the images have been overwritten
+        im1 = Image.open(self.storage.get('demo_project', 'overwrite_test', 'jpg'))
+        im2 = Image.open(self.storage.get('demo_project', 'overwrite_test', 'jpg', 'imaginary_size'))
+        self.assertEqual((new_width, new_height), im1.size)
+        self.assertEqual((new_width, new_height), im2.size)
 
     def test_save_new_img(self):
         """after saving a not yet existing image it must be available in the storage """
         fd = self.storage.get('demo_project', 'welcome', 'jpg')
         im = Image.open(fd)
-        im.resize((20, 30))
-        resized_img = io.BytesIO()
-        im.save(resized_img, 'JPEG')
-        resized_img.seek(0)
+        resized_img = im.resize((20, 30))
         # invent a random size to make sure it does not yet exist in our storage
         size = 'xtrasmall'
         random.seed()
         while self.storage.exists('demo_project', 'welcome', 'jpg', size):
             size += str(random.randint(0, 10))
         self.assertFalse(self.storage.exists('demo_project', 'welcome', 'jpg', size))
-        self.storage.save('demo_project', 'welcome', 'jpg', resized_img.read(), size)
+        self.storage.save_image('demo_project', 'welcome', 'jpg', resized_img, size)
         self.assertTrue(self.storage.exists('demo_project', 'welcome', 'jpg', size))
-        new_fd = self.storage.get('demo_project', 'welcome', 'jpg', size)
-        # the storage must return the same binary data that we stored
-        self.assertEqual(self._md5sum_from_file(resized_img), self._md5sum_from_file(new_fd))
+        im_from_storage = Image.open(self.storage.get('demo_project', 'welcome', 'jpg', size))
+        # storage must return a JPEG image with the chosen size
+        self.assertEqual(im_from_storage.size, resized_img.size)
+        self.assertEqual(im_from_storage.format, 'JPEG')
 
     def test_image_fd_is_readonly(self):
         """the filedescriptor returned by get must not allow to change the image in the storage
@@ -313,16 +296,10 @@ class FSStorageTestCase(unittest.TestCase):
             fd.seek(0)
             fd.write(b'asdf')
 
-    def _md5sum_from_file(self, f):
-        f.seek(0)
-        d = hashlib.md5()
-        for buf in iter(partial(f.read, 128), b''):
-            d.update(buf)
-        return d.hexdigest()
-
 
 if APP_ENGINE_AVAILABLE:
     """run all the storage tests on the appengine datastore too"""
+
 
     class DatastoreStorageTestCase(FSStorageTestCase):
         def setUp(self):

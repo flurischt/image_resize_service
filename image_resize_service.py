@@ -1,6 +1,6 @@
 import os.path as op
-import tempfile
 import io
+import tempfile
 
 from functools import wraps
 from flask import Flask, render_template, send_file, request, redirect, url_for, Response, jsonify
@@ -16,7 +16,7 @@ __storage = None
 
 
 def _storage():
-    """returns access to the storage (save(), get() and exists())"""
+    """returns access to the storage (save_image(), get() and exists())"""
     global __storage
     if not __storage:
         if app.config['STORAGE'] == 'FILESYSTEM':
@@ -48,7 +48,7 @@ def _calc_size(target_size, image):
 
 def _resize_image(project, name, extension, size):
     """
-    resizes the image identified by project, name and extension and saves it to the RESIZED_DIR.
+    resizes the image identified by project, name and extension and saves it in the storage.
     :param project: a valid project. YOU NEED TO HAVE CHECKED THAT THIS PROJECT EXISTS
     :param name: the image name (prefix without dimension or extension)
     :param extension: the file extension
@@ -58,16 +58,12 @@ def _resize_image(project, name, extension, size):
         raise NotFound()
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(_calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
-    # target_image = io.BytesIO()  # app engines PIL version has trouble with this...
-    appengine_fix = tempfile.TemporaryFile()  # we therefore need to use a tempfile
-    im.save(appengine_fix, 'JPEG')
-    appengine_fix.seek(0)
-    _storage().save(project, name, extension, appengine_fix.read(), size)
-    appengine_fix.seek(0)
-    return_img = io.BytesIO(appengine_fix.read())
-    appengine_fix.close()
-    return_img.seek(0)
-    return return_img
+    _storage().save_image(project, name, extension, im, size)
+    # not cool, appengines PIL version needs a tempfile and flasks send_file has trouble with it.: tempfile -> BytesIO
+    ret_file = tempfile.TemporaryFile()
+    im.save(ret_file, 'JPEG')
+    ret_file.seek(0)
+    return io.BytesIO(ret_file.read())
 
 
 def _serve_image(project, name, size, extension):
@@ -75,8 +71,8 @@ def _serve_image(project, name, size, extension):
             or (size and not size in app.config['PROJECTS'][project]['dimensions']):
         raise NotFound()
     if not _storage().exists(project, name, extension, size):
-        image = _resize_image(project, name, extension, size)
-        return send_file(image, mimetype='image/jpeg')
+        resized_file = _resize_image(project, name, extension, size)
+        return send_file(resized_file, mimetype='image/jpeg')
     return send_file(_storage().get(project, name, extension, size), mimetype='image/jpeg')
 
 
