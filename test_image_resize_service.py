@@ -1,6 +1,4 @@
 import base64
-from functools import partial
-import hashlib
 import json
 import random
 import unittest

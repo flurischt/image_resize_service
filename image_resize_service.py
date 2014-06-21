@@ -1,5 +1,5 @@
 import os.path as op
-import tempfile
+import io
 
 from functools import wraps
 from flask import Flask, render_template, send_file, request, redirect, url_for, Response, jsonify
@@ -15,7 +15,7 @@ __storage = None
 
 
 def _storage():
-    """returns access to the storage (save(), get() and exists())"""
+    """returns access to the storage (save_image(), get() and exists())"""
     global __storage
     if not __storage:
         if app.config['STORAGE'] == 'FILESYSTEM':
@@ -58,7 +58,7 @@ def _resize_image(project, name, extension, size):
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(_calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
     _storage().save_image(project, name, extension, im, size)
-    return_img = tempfile.TemporaryFile()
+    return_img = io.BytesIO()
     im.save(return_img, 'JPEG')
     return_img.seek(0)
     return return_img
@@ -159,10 +159,7 @@ def upload_image():
         try:
             uploaded_file.seek(0)
             im = Image.open(uploaded_file)
-            jpg_image = tempfile.TemporaryFile()
-            im.save(jpg_image, 'JPEG')
-            jpg_image.seek(0)
-            _storage().save(project, filename, extension, jpg_image.read())
+            _storage().save_image(project, filename, extension, im)
             return json_response({
                 'status': 'ok',
                 'url': url_for('serve_original_image', project=project, name=filename, extension=extension)
