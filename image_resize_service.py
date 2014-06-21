@@ -1,5 +1,5 @@
 import os.path as op
-import io
+import tempfile
 
 from functools import wraps
 from flask import Flask, render_template, send_file, request, redirect, url_for, Response, jsonify
@@ -47,7 +47,7 @@ def _calc_size(target_size, image):
 
 def _resize_image(project, name, extension, size):
     """
-    resizes the image identified by project, name and extension and saves it to the RESIZED_DIR.
+    resizes the image identified by project, name and extension and saves it in the storage.
     :param project: a valid project. YOU NEED TO HAVE CHECKED THAT THIS PROJECT EXISTS
     :param name: the image name (prefix without dimension or extension)
     :param extension: the file extension
@@ -58,10 +58,6 @@ def _resize_image(project, name, extension, size):
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(_calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
     _storage().save_image(project, name, extension, im, size)
-    return_img = io.BytesIO()
-    im.save(return_img, 'JPEG')
-    return_img.seek(0)
-    return return_img
 
 
 def _serve_image(project, name, size, extension):
@@ -69,8 +65,7 @@ def _serve_image(project, name, size, extension):
             or (size and not size in app.config['PROJECTS'][project]['dimensions']):
         raise NotFound()
     if not _storage().exists(project, name, extension, size):
-        image = _resize_image(project, name, extension, size)
-        return send_file(image, mimetype='image/jpeg')
+        _resize_image(project, name, extension, size)
     return send_file(_storage().get(project, name, extension, size), mimetype='image/jpeg')
 
 
