@@ -1,5 +1,7 @@
+import base64
 from functools import partial
 import hashlib
+import json
 import random
 import unittest
 import io
@@ -35,6 +37,12 @@ except ImportError:
     sys.stderr.write('App engine not available. Datastore tests are NOT run.\n')
 
 
+def _add_test_image_to_storage(storage, project, name, extension):
+    """adds the welcome image to a storage. useful for testing empty storages"""
+    with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+        storage.save(project, name, extension, f.read())
+
+
 class APITestCase(unittest.TestCase):
     """tests the HTTP API using the configured storage
        make sure to configure STORAGE=APP_ENGINE if you run the code in the dev_appserver or on appspot.
@@ -49,6 +57,8 @@ class APITestCase(unittest.TestCase):
             self.testbed = testbed.Testbed()
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
+        _add_test_image_to_storage(img_service._storage(), 'demo_project', 'welcome', 'jpg')
+        self.username, self.password = img_service.app.config['PROJECTS']['demo_project']['auth']
 
     def tearDown(self):
         if APP_ENGINE_AVAILABLE:
@@ -59,15 +69,53 @@ class APITestCase(unittest.TestCase):
         rv = self.app.get('/')
         self.assertEqual(rv.status_code, 200)
 
-    def test_wrong_method(self):
-        """image url only supports GET"""
+    def test_uploadform(self):
+        """just make sure we get a html response containing a form"""
+        rv = self.app.get('/uploadform')
+        self.assertEqual(rv.status_code, 200)
+        self.assertTrue('<form' in rv.data)
+
+    def test_resized_image(self):
+        """just download an existing fullsize image"""
+        rv, im = self.download_image('/img/demo_project/welcome@small.jpg')
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.mimetype, 'image/jpeg')
+        self.assertEqual(im.format, 'JPEG')
+
+    def test_full_image(self):
+        """download a resized image"""
+        rv, im = self.download_image('/img/demo_project/welcome.jpg')
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.mimetype, 'image/jpeg')
+        self.assertEqual(im.format, 'JPEG')
+
+    def test_wrong_method_resized_img(self):
+        """resized image url only supports GET"""
         rv = self.app.post('/img/demo_project/welcome@small.jpg')
         self.assertEqual(rv.status_code, 405)  # method not allowed
+
+    def test_wrong_method_img(self):
+        """the full image url only supports GET"""
+        rv = self.app.post('/img/demo_project/welcome.jpg')
+        self.assertEqual(rv.status_code, 405)
+
+    def test_wrong_method_upload(self):
+        """the upload url only supports POST"""
+        rv = self.app.get('/upload')
+        self.assertEqual(rv.status_code, 405)
+
+    def test_wrong_method_uploadform(self):
+        """the uploadform only supports GET"""
+        rv = self.app.post('/uploadform')
+        self.assertEqual(rv.status_code, 405)
 
     def test_invalid_project(self):
         """wrong projects return a 404 error"""
         rv = self.app.get('/img/bla/welcome@small.jpg')
-        self.assertEqual(rv.status_code, 404)  # not found
+        self.assertEqual(rv.status_code, 404)
+        # same test for fullsize images
+        rv = self.app.get('/img/bla/welcome.jpg')
+        self.assertEqual(rv.status_code, 404)
 
     def test_invalid_size(self):
         """unsupported dimensions return a 404 error"""
@@ -77,13 +125,89 @@ class APITestCase(unittest.TestCase):
     def test_correct_mimetype(self):
         """make sure we get a jpeg image and it's dimension fits the configuration"""
         for dimension_name, dimension in img_service.app.config['PROJECTS']['demo_project']['dimensions'].items():
-            rv = self.app.get('/img/demo_project/welcome@' + dimension_name + '.jpg')
-            im = Image.open(io.BytesIO(rv.data))
+            rv, im = self.download_image('/img/demo_project/welcome@' + dimension_name + '.jpg')
             max_width, max_height = dimension
             self.assertEqual(rv.status_code, 200)
             self.assertEqual(rv.mimetype, 'image/jpeg')
             self.assertEqual(im.format, 'JPEG')
             self.assertTrue(im.size[0] <= max_width and im.size[1] <= max_height)
+
+    def test_upload_wrong_credentials(self):
+        """try to upload to a valid project using wrong credentials"""
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+            rv = self.upload_with_auth('fred', 'frickler', 'demo_project', f, 'upload_test.jpg')
+        self.assertEqual(rv.status_code, 401)  # Unauthorized
+
+    def test_upload_wrong_project(self):
+        """try to upload to an invalid project using valid credentials"""
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+            rv = self.upload_with_correct_auth('blabla', f, 'upload_test.jpg')
+        self.assertEqual(rv.status_code, 401)  # Unauthorized
+
+    def test_upload(self):
+        """upload a valid image using valid credentials.
+           api must reply with a json response containing { 'status' : 'ok', 'url' : 'url_to_the_image'}
+        """
+        # upload a valid image
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+            rv = self.upload_with_correct_auth('demo_project', f, 'upload.jpg')
+        json_response = json.loads(rv.data)
+        # and download it
+        url_to_image = '/img/demo_project/upload.jpg'
+        rv2, im = self.download_image(url_to_image)
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv2.status_code, 200)
+        self.assertEqual(im.format, 'JPEG')
+        self.assertTrue('status' in json_response)
+        self.assertTrue('url' in json_response)
+        self.assertEqual(json_response['status'], 'ok')
+        self.assertTrue(url_to_image in json_response['url'])
+
+    def test_upload_wrong_extension(self):
+        """ correct login, but filename is not an image (.exe). API must response with a json
+            containing status='fail' and an error message 'message'. expected statuscode = 500
+        """
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+            rv = self.upload_with_correct_auth('demo_project', f, 'upload.exe')
+        json_response = json.loads(rv.data)
+        self.assertEqual(rv.status_code, 500)
+        self.assertTrue('status' in json_response)
+        self.assertTrue('message' in json_response)
+        self.assertEqual(json_response['status'], 'fail')
+
+    def test_upload_invalid_file(self):
+        """valid credentials and imagename. but uploading some data that is no image
+            API must response with a json containing status='fail' and an error message
+            'message'. expected statuscode = 500
+        """
+        rv = self.upload_with_correct_auth('demo_project', io.BytesIO(r'asdfasdf'), 'upload.jpg')
+        json_response = json.loads(rv.data)
+        self.assertEqual(rv.status_code, 500)
+        self.assertTrue('status' in json_response)
+        self.assertTrue('message' in json_response)
+        self.assertEqual(json_response['status'], 'fail')
+
+    def upload_with_auth(self, username, password, project, file, filename):
+        """try uploading the given file using http basic login"""
+        return self.app.post('/upload',
+                             content_type='multipart/form-data',
+                             headers={
+                                 'Authorization': 'Basic ' + base64.b64encode(username + \
+                                                                              ":" + password)
+                             },
+                             data={'project': project,
+                                   'file': (file, filename)}
+        )
+
+    def upload_with_correct_auth(self, project, file, filename):
+        """upload the file using valid credentials"""
+        return self.upload_with_auth(self.username, self.password, project, file, filename)
+
+    def download_image(self, url):
+        """download the image and return response and PIL.Image objects"""
+        rv = self.app.get(url)
+        im = Image.open(io.BytesIO(rv.data))
+        return rv, im
 
 
 class FSStorageTestCase(unittest.TestCase):
@@ -180,11 +304,8 @@ if APP_ENGINE_AVAILABLE:
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
             from storage.appengine_datastore import DatastoreImageStorage  # must be imported AFTER creating a testbed
-
             self.storage = DatastoreImageStorage()
-            # put the demo_image into the datastore
-            im = Image.open('demo_image_dir/images/demo_project/welcome.jpg', 'r')
-            self.storage.save_image('demo_project', 'welcome', 'jpg', im)
+            _add_test_image_to_storage(self.storage, 'demo_project', 'welcome', 'jpg')
 
         def tearDown(self):
             self.testbed.deactivate()
