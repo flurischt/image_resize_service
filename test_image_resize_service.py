@@ -1,4 +1,5 @@
 import base64
+
 import json
 import random
 import unittest
@@ -142,6 +143,18 @@ class APITestCase(unittest.TestCase):
             rv = self.upload_with_correct_auth('blabla', f, 'upload_test.jpg')
         self.assertEqual(rv.status_code, 401)  # Unauthorized
 
+    def check_valid_json_response(self, json_response, expected_keys, expected_values=None):
+        """checks that json_response contains ONLY the expected keys and nothing else.
+           if needed it can also check the values inside the json_response
+        """
+        for key, value in json_response.iteritems():
+            self.assertTrue(key in expected_keys)
+        for key in expected_keys:
+            self.assertTrue(key in json_response)
+        if expected_values:
+            for key, value in expected_values.iteritems():
+                self.assertEqual(json_response[key], expected_values[key])
+
     def test_upload(self):
         """upload a valid image using valid credentials.
            api must reply with a json response containing { 'status' : 'ok', 'url' : 'url_to_the_image'}
@@ -156,10 +169,7 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv2.status_code, 200)
         self.assertEqual(im.format, 'JPEG')
-        self.assertTrue('status' in json_response)
-        self.assertTrue('url' in json_response)
-        self.assertEqual(json_response['status'], 'ok')
-        self.assertTrue(url_to_image in json_response['url'])
+        self.check_valid_json_response(json_response, ('status', 'url'), dict(status='ok', url=url_to_image))
 
     def test_upload_wrong_extension(self):
         """ correct login, but filename is not an image (.exe). API must response with a json
@@ -169,9 +179,7 @@ class APITestCase(unittest.TestCase):
             rv = self.upload_with_correct_auth('demo_project', f, 'upload.exe')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
-        self.assertTrue('status' in json_response)
-        self.assertTrue('message' in json_response)
-        self.assertEqual(json_response['status'], 'fail')
+        self.check_valid_json_response(json_response, ('status', 'message'), dict(status='fail'))
 
     def test_upload_invalid_file(self):
         """valid credentials and imagename. but uploading some data that is no image
@@ -181,9 +189,7 @@ class APITestCase(unittest.TestCase):
         rv = self.upload_with_correct_auth('demo_project', io.BytesIO(r'asdfasdf'), 'upload.jpg')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
-        self.assertTrue('status' in json_response)
-        self.assertTrue('message' in json_response)
-        self.assertEqual(json_response['status'], 'fail')
+        self.check_valid_json_response(json_response, ('status', 'message'), dict(status='fail'))
 
     def upload_with_auth(self, username, password, project, file, filename):
         """try uploading the given file using http basic login"""

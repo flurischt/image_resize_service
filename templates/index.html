@@ -5,11 +5,12 @@
 <p>
     <b>what?</b><br /><a href="http://github.com/flurischt/image_resize_service">github.com/flurischt/image_resize_service</a><br /><br />
     <b>setup</b>
-    <ul><li>configure SOURCE_DIR and RESIZED_DIR in production.cfg</li>
-    <li>add a project and some image dimensions to production.cfg</li>
-    <li>make sure the directories SOURCE_DIR/projectname and RESIZED_DIR/projectname exist</li>
-    <li>put some images to SOURCE_DIR/projectname/</li>
-    <li>access them using /img/project_name/image_name@dimension.image_extension</li>
+    <ul>
+    <li>choose a STORAGE in production.cfg</li>
+    <li>configure SOURCE_DIR and RESIZED_DIR if STORAGE=FILESYSTEM</li>
+    <li>upload some images or add them to SOURCE_DIR/project/ (if storage=FILESYSTEM)</li>
+    <li>access them using /img/project_name/image_name@dimension.image_extension to get a resized image</li>
+    <li>or access them using /img/project_name/image_name.extension to get the full image</li>
     </ul>
     <b>upload an image!</b><br />
     <a href="/uploadform">/uploadform</a><br /><br />
@@ -18,7 +19,7 @@
     <li><a href="/img/demo_project/welcome@small.jpg">demo_project/welcome@small.jpg</a></li>
     <li><a href="/img/demo_project/welcome@medium.jpg">demo_project/welcome@medium.jpg</a></li>
     <li><a href="/img/demo_project/welcome@large.jpg">demo_project/welcome@large.jpg</a></li>
-    <li><a href="/img/demo_project/welcome@fullsize.jpg">demo_project/welcome@fullsize.jpg</a></li>
+    <li><a href="/img/demo_project/welcome.jpg">Fullsize</a></li>
     </ul>
 </p>
 </body>
