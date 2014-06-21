@@ -1,6 +1,5 @@
 import os.path as op
 import tempfile
-import io
 
 from functools import wraps
 from flask import Flask, render_template, send_file, request, redirect, url_for, Response
@@ -57,15 +56,10 @@ def _resize_image(project, name, extension, size):
         raise NotFound()
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(_calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
-    # target_image = io.BytesIO()  # app engines PIL version has trouble with this...
-    appengine_fix = tempfile.TemporaryFile()  #  we therefore need to use a tempfile
-    im.save(appengine_fix, 'JPEG')
-    appengine_fix.seek(0)
-    _storage().save(project, name, extension, appengine_fix.read(), size)
-    appengine_fix.seek(0)
-    return_img = io.BytesIO(appengine_fix.read())
-    appengine_fix.close()
-    return_img.seek(0)
+    _storage().save_image(project, name, extension, im, size)
+    return_img = tempfile.TemporaryFile()
+    im.save(return_img, 'JPEG')
+    return_img.seek()
     return return_img
 
 
@@ -145,10 +139,7 @@ def upload_image():
         filename, extension = secure_filename(uploaded_file.filename).rsplit('.', 1)
         uploaded_file.seek(0)
         im = Image.open(uploaded_file)
-        jpg_image = tempfile.TemporaryFile()
-        im.save(jpg_image, 'JPEG')
-        jpg_image.seek(0)
-        _storage().save(project, filename, extension, jpg_image.read())
+        _storage().save_image(project, filename, extension, im)
         return redirect(url_for('serve_original_image', project=project, name=filename, extension=extension))
 
 
