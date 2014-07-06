@@ -340,7 +340,11 @@ class ImageAPI(Resource):
     )
     @marshal_with(DeleteResponse.resource_fields)
     def delete(self, project, name, extension):
-        pass
+        if not project in app.config['PROJECTS']:
+            return {'status': 'fail', 'message': 'this project does not exist'}, 500
+        success = _storage().delete(project, name, extension)
+        code = 200 if success else 404
+        return {'status': 'ok' if success else 'fail', 'message': 'deleted' if success else ''}, code
 
 api.add_resource(UploadAPI, '/upload')
 api.add_resource(ImageAPI, '/api/v1.0/images/<project>/<name>.<extension>')
