@@ -7,14 +7,14 @@ from flask import Flask, render_template, send_file, request, redirect, url_for,
 from werkzeug.exceptions import NotFound
 from PIL import Image
 from werkzeug.utils import secure_filename
-from flask.ext.restful import Api, Resource, reqparse
+from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
+from flask_restful_swagger import swagger
 
 app = Flask(__name__)
 config = op.join(app.root_path, 'production.cfg')
 app.config.from_pyfile(config)
 __storage = None
-api = Api(app)
-
+api = swagger.docs(Api(app), apiVersion='0.1')
 
 def _storage():
     """returns access to the storage (save_image(), get() and exists())"""
@@ -111,7 +111,7 @@ def requires_auth(f):
 def _upload_json_response(success, **kwargs):
     res_dict = dict(status='ok' if success else 'fail')
     res_dict.update(kwargs)
-    code = 200 if success else 500
+    code = 201 if success else 500
     return res_dict, code
 
 
@@ -144,6 +144,15 @@ def upload_form():
     return render_template('upload.html')
 
 
+@swagger.model
+class UploadResponse:
+    resource_fields = {
+        'status': fields.String,
+        'message': fields.String(default=''),
+        'url': fields.String
+    }
+
+
 class UploadAPI(Resource):
     decorators = [requires_auth]
 
@@ -156,6 +165,40 @@ class UploadAPI(Resource):
                                    choices=set(app.config['PROJECTS'].keys()))
         super(UploadAPI, self).__init__()
 
+    @swagger.operation(
+        notes='operation to upload an image. the server will choose the filename and return it to the caller',
+        responseClass=UploadResponse.__name__,
+        nickname='upload',
+        parameters=[
+            {
+                "name": "project",
+                "description": "the project to which you want to upload",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "form"
+            },
+            {
+                "name": "file",
+                "description": "an image uploaded using multipart-formdata",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": file.__name__,
+                "paramType": "body"
+            }
+        ],
+        responseMessages=[
+            {
+                "code": 201,
+                "message": "Created. The URL of the created blueprint should be in the Location header"
+            },
+            {
+                "code": 500,
+                "message": "Invalid input"
+            }
+        ]
+    )
+    @marshal_with(UploadResponse.resource_fields)
     def post(self):
         args = self.reqparse.parse_args()
         uploaded_file = args['file']
@@ -178,7 +221,6 @@ class UploadAPI(Resource):
                                          message='your uploaded binary data does not represent a recognized image format.')
 
 api.add_resource(UploadAPI, '/upload')
-
 
 if __name__ == '__main__':
     if app.config['STORAGE'] == 'APPENGINE':

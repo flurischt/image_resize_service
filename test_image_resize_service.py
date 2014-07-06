@@ -166,10 +166,10 @@ class APITestCase(unittest.TestCase):
         # and download it
         url_to_image = '/img/demo_project/upload.jpg'
         rv2, im = self.download_image(url_to_image)
-        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.status_code, 201)
         self.assertEqual(rv2.status_code, 200)
         self.assertEqual(im.format, 'JPEG')
-        self.check_valid_json_response(json_response, ('status', 'url'), dict(status='ok', url=url_to_image))
+        self.check_valid_json_response(json_response, ('status', 'url', 'message'), dict(status='ok', url=url_to_image))
 
     def test_upload_wrong_extension(self):
         """ correct login, but filename is not an image (.exe). API must response with a json
@@ -179,7 +179,7 @@ class APITestCase(unittest.TestCase):
             rv = self.upload_with_correct_auth('demo_project', f, 'upload.exe')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
-        self.check_valid_json_response(json_response, ('status', 'message'), dict(status='fail'))
+        self.check_valid_json_response(json_response, ('status', 'message', 'url'), dict(status='fail'))
 
     def test_upload_invalid_file(self):
         """valid credentials and imagename. but uploading some data that is no image
@@ -189,7 +189,7 @@ class APITestCase(unittest.TestCase):
         rv = self.upload_with_correct_auth('demo_project', io.BytesIO(r'asdfasdf'), 'upload.jpg')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
-        self.check_valid_json_response(json_response, ('status', 'message'), dict(status='fail'))
+        self.check_valid_json_response(json_response, ('status', 'message', 'url'), dict(status='fail'))
 
     def upload_with_auth(self, username, password, project, file, filename):
         """try uploading the given file using http basic login"""
