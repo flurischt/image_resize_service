@@ -160,7 +160,37 @@ class DeleteResponse:
     }
 
 
+def _save_to_storage(uploaded_file, project, name, extension):
+    """
+    puts the given file into the storage. used for POST and PUT service.
+    an already existing image is overwritten. not yet existing images are created.
+    :param uploaded_file: a file descriptor
+    :param project: the already validated project. ITS YOUR TURN TO CHECK THAT THIS PROJECT EXISTS!
+    :param name: name to be used
+    :param extension: extension to be used
+    :return:
+    """
+    if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
+        return _upload_json_response(False, message='unsupported image file extension. check ALLOWED_EXTENSIONS')
+    try:
+        uploaded_file.seek(0)
+        im = Image.open(uploaded_file)
+        jpg_image = tempfile.TemporaryFile()
+        im.save(jpg_image, 'JPEG')
+        jpg_image.seek(0)
+        _storage().save(project, name, extension, jpg_image.read())
+        return _upload_json_response(True,
+                                     url=url_for('serve_original_image', project=project, name=name,
+                                                 extension=extension))
+    except IOError:
+        return _upload_json_response(False,
+                                     message='your uploaded binary data does not represent a recognized image format.')
+
+
 class UploadAPI(Resource):
+    """
+    API that represents the /upload resource. should be replace by the PUT resource
+    """
     decorators = [requires_auth]
 
     def __init__(self):
@@ -211,24 +241,13 @@ class UploadAPI(Resource):
         uploaded_file = args['file']
         project = args['project']
         filename, extension = secure_filename(uploaded_file.filename).rsplit('.', 1)
-        if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
-            return _upload_json_response(False, message='unsupported image file extension. check ALLOWED_EXTENSIONS')
-        try:
-            uploaded_file.seek(0)
-            im = Image.open(uploaded_file)
-            jpg_image = tempfile.TemporaryFile()
-            im.save(jpg_image, 'JPEG')
-            jpg_image.seek(0)
-            _storage().save(project, filename, extension, jpg_image.read())
-            return _upload_json_response(True,
-                                         url=url_for('serve_original_image', project=project, name=filename,
-                                                     extension=extension))
-        except IOError:
-            return _upload_json_response(False,
-                                         message='your uploaded binary data does not represent a recognized image format.')
+        return _save_to_storage(uploaded_file, project, filename, extension)
 
 
 class ImageAPI(Resource):
+    """
+    API that supports PUT and DELETE for images.
+    """
     decorators = [requires_auth]
 
     def __init__(self):
@@ -292,21 +311,7 @@ class ImageAPI(Resource):
         if project not in app.config['PROJECTS']:
             return {'status': 'fail', 'message': 'invalid project provided'}, 500
         uploaded_file = args['file']
-        if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
-            return _upload_json_response(False, message='unsupported image file extension. check ALLOWED_EXTENSIONS')
-        try:
-            uploaded_file.seek(0)
-            im = Image.open(uploaded_file)
-            jpg_image = tempfile.TemporaryFile()
-            im.save(jpg_image, 'JPEG')
-            jpg_image.seek(0)
-            _storage().save(project, name, extension, jpg_image.read())
-            return _upload_json_response(True,
-                                         url=url_for('serve_original_image', project=project, name=name,
-                                                     extension=extension))
-        except IOError:
-            return _upload_json_response(False,
-                                         message='your uploaded binary data does not represent a recognized image format.')
+        return _save_to_storage(uploaded_file, project, name, extension)
 
     @swagger.operation(
         notes='delete existing image',
