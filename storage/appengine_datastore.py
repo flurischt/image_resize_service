@@ -2,6 +2,7 @@ import io
 
 from werkzeug.exceptions import NotFound
 from google.appengine.ext import db
+from google.appengine.ext.db import Error as DatastoreError
 
 from storage import ImageStorage
 
@@ -15,6 +16,7 @@ class Image(db.Model):
 
 
 class DatastoreImageStorage(ImageStorage):
+
     def _get_single_image(self, project, name, extension, size=None):
         im = Image.gql("WHERE project = :1 AND name = :2 AND extension = :3 AND size = :4",
                        project, name, extension, self._size_for_query(size)
@@ -44,6 +46,16 @@ class DatastoreImageStorage(ImageStorage):
         fd.write(im.image_data)
         fd.seek(0)
         return fd
+
+    def delete(self, project, name, extension, size=None):
+        if not self.exists(project, name, extension, size):
+            return False
+        image = self._get_single_image(project, name, extension, size)
+        try:
+            image.delete()
+            return True
+        except DatastoreError:
+            return False
 
     def _size_for_query(self, size):
         if not size:

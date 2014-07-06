@@ -7,12 +7,14 @@ from flask import Flask, render_template, send_file, request, redirect, url_for,
 from werkzeug.exceptions import NotFound
 from PIL import Image
 from werkzeug.utils import secure_filename
-
+from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
+from flask_restful_swagger import swagger
 
 app = Flask(__name__)
 config = op.join(app.root_path, 'production.cfg')
 app.config.from_pyfile(config)
 __storage = None
+api = swagger.docs(Api(app), apiVersion='0.1')
 
 
 def _storage():
@@ -76,13 +78,13 @@ def _serve_image(project, name, size, extension):
     return send_file(_storage().get(project, name, extension, size), mimetype='image/jpeg')
 
 
-def _check_auth(username, password):
+def _check_auth(username, password, project):
     """This function is called to check if a username /
     password combination is valid.
     """
-    if not request.form['project'] in app.config['PROJECTS']:
+    if not project in app.config['PROJECTS']:
         return False
-    correct_user, correct_pass = app.config['PROJECTS'][request.form['project']]['auth']
+    correct_user, correct_pass = app.config['PROJECTS'][project]['auth']
     return username == correct_user and password == correct_pass
 
 
@@ -98,7 +100,9 @@ def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth = request.authorization
-        if not auth or not _check_auth(auth.username, auth.password):
+        # temp workaround to make this decorator work with functions and the restful class TODO: fix this
+        project = kwargs['project'] if 'project' in kwargs else request.form['project']
+        if not auth or not _check_auth(auth.username, auth.password, project):
             return _authenticate()
         return f(*args, **kwargs)
 
@@ -108,9 +112,8 @@ def requires_auth(f):
 def _upload_json_response(success, **kwargs):
     res_dict = dict(status='ok' if success else 'fail')
     res_dict.update(kwargs)
-    response = jsonify(res_dict)
-    response.status_code = 200 if success else 500
-    return response
+    code = 201 if success else 500
+    return res_dict, code
 
 
 @app.route('/')
@@ -142,35 +145,232 @@ def upload_form():
     return render_template('upload.html')
 
 
-@app.route('/upload', methods=['POST'])
-@requires_auth
-def upload_image():
-    uploaded_file = request.files['file']
-    project = request.form['project']
-    if not project in app.config['PROJECTS']:
-        # as long as this function is @requires_auth protected this cannot happen
-        # you cannot login with a wrong project. code stays to protect uploads anyway.
-        return _upload_json_response(False, message='project is not configured!')
-    if uploaded_file:
-        filename, extension = secure_filename(uploaded_file.filename).rsplit('.', 1)
-        if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
-            return _upload_json_response(False, message='unsupported image file extension. check ALLOWED_EXTENSIONS')
-        try:
-            uploaded_file.seek(0)
-            im = Image.open(uploaded_file)
-            jpg_image = tempfile.TemporaryFile()
-            im.save(jpg_image, 'JPEG')
-            jpg_image.seek(0)
-            _storage().save(project, filename, extension, jpg_image.read())
-            return _upload_json_response(True,
-                                 url=url_for('serve_original_image', project=project, name=filename,
-                                             extension=extension))
-        except IOError:
-            return _upload_json_response(False,
-                                 message='your uploaded binary data does not represent a recognized image format.')
-    else:
-        return _upload_json_response(False, message='no image uploaded!')
+@swagger.model
+class UploadResponse:
+    resource_fields = {
+        'status': fields.String,
+        'message': fields.String(default=''),
+        'url': fields.String
+    }
 
+
+@swagger.model
+class DeleteResponse:
+    resource_fields = {
+        'status': fields.String,
+        'message': fields.String(default='')
+    }
+
+
+def _save_to_storage(uploaded_file, project, name, extension):
+    """
+    puts the given file into the storage. used for POST and PUT service.
+    an already existing image is overwritten. not yet existing images are created.
+    :param uploaded_file: a file descriptor
+    :param project: the already validated project. ITS YOUR TURN TO CHECK THAT THIS PROJECT EXISTS!
+    :param name: name to be used
+    :param extension: extension to be used
+    :return:
+    """
+    if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
+        return _upload_json_response(False, message='unsupported image file extension. check ALLOWED_EXTENSIONS')
+    try:
+        uploaded_file.seek(0)
+        im = Image.open(uploaded_file)
+        jpg_image = tempfile.TemporaryFile()
+        im.save(jpg_image, 'JPEG')
+        jpg_image.seek(0)
+        _storage().save(project, name, extension, jpg_image.read())
+        return _upload_json_response(True,
+                                     url=url_for('serve_original_image', project=project, name=name,
+                                                 extension=extension))
+    except IOError:
+        return _upload_json_response(False,
+                                     message='your uploaded binary data does not represent a recognized image format.')
+
+
+class UploadAPI(Resource):
+    """
+    API that represents the /upload resource. should be replace by the PUT resource
+    """
+    decorators = [requires_auth]
+
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument('file', type=file, required=True,
+                                   help='No file provided', location='files')
+        self.reqparse.add_argument('project', type=str, required=True,
+                                   help='no or invalid project provided',
+                                   choices=set(app.config['PROJECTS'].keys()))
+        super(UploadAPI, self).__init__()
+
+    @swagger.operation(
+        notes='create a new image. filename is chosen by the server and returned to caller',
+        responseClass=UploadResponse.__name__,
+        nickname='upload',
+        parameters=[
+            {
+                "name": "project",
+                "description": "the project to which you want to upload",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "form"
+            },
+            {
+                "name": "file",
+                "description": "an image uploaded using multipart-formdata",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": file.__name__,
+                "paramType": "body"
+            }
+        ],
+        responseMessages=[
+            {
+                "code": 201,
+                "message": "Created."
+            },
+            {
+                "code": 500,
+                "message": "Invalid input"
+            }
+        ]
+    )
+    @marshal_with(UploadResponse.resource_fields)
+    def post(self):
+        args = self.reqparse.parse_args()
+        uploaded_file = args['file']
+        project = args['project']
+        filename, extension = secure_filename(uploaded_file.filename).rsplit('.', 1)
+        return _save_to_storage(uploaded_file, project, filename, extension)
+
+
+class ImageAPI(Resource):
+    """
+    API that supports PUT and DELETE for images.
+    """
+    decorators = [requires_auth]
+
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument('file', type=file, required=True,
+                                   help='No file provided', location='files')
+        super(ImageAPI, self).__init__()
+
+    @swagger.operation(
+        notes='create or overwrite an image',
+        responseClass=UploadResponse.__name__,
+        nickname='put image',
+        parameters=[
+            {
+                "name": "file",
+                "description": "an image uploaded using multipart-formdata",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": "file",
+                "paramType": "body"
+            },
+            {
+                "name": "project",
+                "description": "the project under which the image should be created",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "name",
+                "description": "the name of the image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "extension",
+                "description": "the extension of this image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            }
+        ],
+        responseMessages=[
+            {
+                "code": 201,
+                "message": "Created."
+            },
+            {
+                "code": 500,
+                "message": "Invalid input"
+            }
+        ]
+    )
+    @marshal_with(UploadResponse.resource_fields)
+    def put(self, project, name, extension):
+        args = self.reqparse.parse_args()
+        if project not in app.config['PROJECTS']:
+            return {'status': 'fail', 'message': 'invalid project provided'}, 500
+        uploaded_file = args['file']
+        return _save_to_storage(uploaded_file, project, name, extension)
+
+    @swagger.operation(
+        notes='delete existing image',
+        responseClass=DeleteResponse.__name__,
+        nickname='delete image',
+        parameters=[
+            {
+                "name": "project",
+                "description": "the project under which the image should be created",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "name",
+                "description": "the name of the image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "extension",
+                "description": "the extension of this image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            }
+        ],
+        responseMessages=[
+            {
+                "code": 200,
+                "message": "Deleted."
+            },
+            {
+                "code": 404,
+                "message": "Image does not exist."
+            },
+            {
+                "code": 500,
+                "message": "Invalid input"
+            }
+        ]
+    )
+    @marshal_with(DeleteResponse.resource_fields)
+    def delete(self, project, name, extension):
+        if not project in app.config['PROJECTS']:
+            return {'status': 'fail', 'message': 'this project does not exist'}, 500
+        success = _storage().delete(project, name, extension)
+        code = 200 if success else 404
+        return {'status': 'ok' if success else 'fail', 'message': 'deleted' if success else ''}, code
+
+
+api.add_resource(UploadAPI, '/upload')
+api.add_resource(ImageAPI, '/api/v1.0/images/<project>/<name>.<extension>')
 
 if __name__ == '__main__':
     if app.config['STORAGE'] == 'APPENGINE':
