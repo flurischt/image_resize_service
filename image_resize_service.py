@@ -152,6 +152,13 @@ class UploadResponse:
         'url': fields.String
     }
 
+@swagger.model
+class DeleteResponse:
+    resource_fields = {
+        'status': fields.String,
+        'message': fields.String(default='')
+    }
+
 
 class UploadAPI(Resource):
     decorators = [requires_auth]
@@ -166,7 +173,7 @@ class UploadAPI(Resource):
         super(UploadAPI, self).__init__()
 
     @swagger.operation(
-        notes='operation to upload an image. the server will choose the filename and return it to the caller',
+        notes='create a new image. filename is chosen by the server and returned to caller',
         responseClass=UploadResponse.__name__,
         nickname='upload',
         parameters=[
@@ -190,7 +197,7 @@ class UploadAPI(Resource):
         responseMessages=[
             {
                 "code": 201,
-                "message": "Created. The URL of the created blueprint should be in the Location header"
+                "message": "Created."
             },
             {
                 "code": 500,
@@ -220,7 +227,123 @@ class UploadAPI(Resource):
             return _upload_json_response(False,
                                          message='your uploaded binary data does not represent a recognized image format.')
 
+
+class ImageAPI(Resource):
+    decorators = [requires_auth]
+
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument('file', type = file, required=True,
+                                   help='No file provided', location='files')
+        super(ImageAPI, self).__init__()
+
+    @swagger.operation(
+        notes='create or overwrite an image',
+        responseClass=UploadResponse.__name__,
+        nickname='put image',
+        parameters=[
+            {
+                "name": "file",
+                "description": "an image uploaded using multipart-formdata",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": "file",
+                "paramType": "body"
+            },
+            {
+                "name": "project",
+                "description": "the project under which the image should be created",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "name",
+                "description": "the name of the image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "extension",
+                "description": "the extension of this image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            }
+        ],
+        responseMessages=[
+            {
+                "code": 201,
+                "message": "Created."
+            },
+            {
+                "code": 500,
+                "message": "Invalid input"
+            }
+        ]
+    )
+    @marshal_with(UploadResponse.resource_fields)
+    def put(self, project, name, extension):
+        #args = self.reqparse.parse_args()
+        #if project not in app.config['PROJECTS']:
+        #    return {'status': 'fail', 'message': 'invalid project provided'}, 500
+        pass
+
+    @swagger.operation(
+        notes='delete existing image',
+        responseClass=DeleteResponse.__name__,
+        nickname='delete image',
+        parameters=[
+            {
+                "name": "project",
+                "description": "the project under which the image should be created",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "name",
+                "description": "the name of the image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            },
+            {
+                "name": "extension",
+                "description": "the extension of this image",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": str.__name__,
+                "paramType": "path"
+            }
+        ],
+        responseMessages=[
+            {
+                "code": 200,
+                "message": "Deleted."
+            },
+            {
+                "code": 404,
+                "message": "Image does not exist."
+            },
+            {
+                "code": 500,
+                "message": "Invalid input"
+            }
+        ]
+    )
+    @marshal_with(DeleteResponse.resource_fields)
+    def delete(self, project, name, extension):
+        pass
+
 api.add_resource(UploadAPI, '/upload')
+api.add_resource(ImageAPI, '/api/v1.0/images/<project>/<name>.<extension>')
 
 if __name__ == '__main__':
     if app.config['STORAGE'] == 'APPENGINE':
