@@ -232,10 +232,8 @@ class APITestCase(unittest.TestCase):
             - put resized image and check that it has been overwritten
         """
         url_to_test_image = '/img/demo_project/put_test.jpg'
-        test_not_exists_yet = self.app.get(url_to_test_image)
-        self.assertEqual(test_not_exists_yet.status_code, 404)
         with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
-            rv = self.app.put(url_to_test_image,
+            rv = self.app.put('/api/v1.0/images/demo_project/put_test.jpg',
                               headers={
                                   'Authorization': 'Basic ' + base64.b64encode(self.username + \
                                                                                ":" + self.password)
@@ -249,12 +247,12 @@ class APITestCase(unittest.TestCase):
             rv, im = self.download_image(url_to_test_image)
             self.assertEqual(rv.status_code, 200)
             # now overwrite the image
-            resized_img = im.resize(20, 20)
+            resized_img = im.resize((100, 100))
             tmp = io.BytesIO()
             resized_img.save(tmp, 'JPEG')
             tmp.seek(0)
             # now overwrite
-            rv = self.app.put('/api/v1.0/images/demo_project/welcome.jpg',
+            rv = self.app.put('/api/v1.0/images/demo_project/put_test.jpg',
                               headers={
                                   'Authorization': 'Basic ' + base64.b64encode(self.username + \
                                                                                ":" + self.password)

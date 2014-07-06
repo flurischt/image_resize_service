@@ -288,10 +288,25 @@ class ImageAPI(Resource):
     )
     @marshal_with(UploadResponse.resource_fields)
     def put(self, project, name, extension):
-        #args = self.reqparse.parse_args()
-        #if project not in app.config['PROJECTS']:
-        #    return {'status': 'fail', 'message': 'invalid project provided'}, 500
-        pass
+        args = self.reqparse.parse_args()
+        if project not in app.config['PROJECTS']:
+            return {'status': 'fail', 'message': 'invalid project provided'}, 500
+        uploaded_file = args['file']
+        if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
+            return _upload_json_response(False, message='unsupported image file extension. check ALLOWED_EXTENSIONS')
+        try:
+            uploaded_file.seek(0)
+            im = Image.open(uploaded_file)
+            jpg_image = tempfile.TemporaryFile()
+            im.save(jpg_image, 'JPEG')
+            jpg_image.seek(0)
+            _storage().save(project, name, extension, jpg_image.read())
+            return _upload_json_response(True,
+                                         url=url_for('serve_original_image', project=project, name=name,
+                                                     extension=extension))
+        except IOError:
+            return _upload_json_response(False,
+                                         message='your uploaded binary data does not represent a recognized image format.')
 
     @swagger.operation(
         notes='delete existing image',
