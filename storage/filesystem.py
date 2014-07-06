@@ -1,4 +1,5 @@
 import os.path as op
+import os
 
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import NotFound
@@ -8,6 +9,7 @@ from storage import ImageStorage
 
 
 class FileImageStorage(ImageStorage):
+
     def __init__(self, SOURCE_DIR, RESIZED_DIR):
         self.SOURCE_DIR = SOURCE_DIR
         self.RESIZED_DIR = RESIZED_DIR
@@ -25,6 +27,16 @@ class FileImageStorage(ImageStorage):
             return file(filename, 'rb')
         else:
             raise NotFound()
+
+    def delete(self, project, name, extension, size=None):
+        if not self.exists(project, name, extension, size):
+            return False
+        path_to_image = self._path_to_image(project, name, extension, size)
+        try:
+            os.remove(path_to_image)
+            return not self.exists(project, name, extension, size)
+        except OSError:
+            return False
 
     def _path_to_image(self, project, name, extension, size=None):
         """

@@ -397,7 +397,7 @@ class FSStorageTestCase(unittest.TestCase):
         self.assertTrue(self.storage.exists(prj, name, extension))
         delete_succeeded = self.storage.delete(prj, name, extension)
         self.assertTrue(delete_succeeded)
-        self.assertTrue(self.storage.exists(prj, name, extension))
+        self.assertFalse(self.storage.exists(prj, name, extension))
 
 
 if APP_ENGINE_AVAILABLE:
