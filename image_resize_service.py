@@ -14,7 +14,7 @@ app = Flask(__name__)
 config = op.join(app.root_path, 'production.cfg')
 app.config.from_pyfile(config)
 __storage = None
-api = swagger.docs(Api(app), apiVersion='0.1')
+api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
 
 
 def _storage():

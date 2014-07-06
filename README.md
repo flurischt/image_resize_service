@@ -79,7 +79,7 @@ check /uploadform to see an example
 Output is json containing either { 'status' : 'OK', 'url' : 'url_to_uploaded_fullsize_image' } (HTTP Statuscode 200)
 or { 'status' : 'fail', 'message' : 'some_error_message' } (HTTP Statuscode 500)
 
-checkout /api/spec.html for the full documentation
+checkout /api/spec.html#!/spec.json for the full documentation
 
 TODO
 -----
