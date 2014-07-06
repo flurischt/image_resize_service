@@ -79,11 +79,12 @@ check /uploadform to see an example
 Output is json containing either { 'status' : 'OK', 'url' : 'url_to_uploaded_fullsize_image' } (HTTP Statuscode 200)
 or { 'status' : 'fail', 'message' : 'some_error_message' } (HTTP Statuscode 500)
 
+checkout /api/spec.html for the full documentation
+
 TODO
 -----
  - currently image_resize_service will always output "image/jpeg" the file extension is just ignored...
  - add some info on how to run this app using a webserver
- - make the projects and dimensions configurable 
 
 License
 -------
