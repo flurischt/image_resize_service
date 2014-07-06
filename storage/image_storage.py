@@ -26,3 +26,8 @@ class ImageStorage(object):
     def get(self, project, name, extension, size=None):
         """returns a filedescriptor to the image (file, or io)"""
         pass
+
+    @abstractmethod
+    def delete(self, project, name, extension, size=None):
+        """delete the image"""
+        pass

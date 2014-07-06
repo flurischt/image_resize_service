@@ -57,6 +57,7 @@ class APITestCase(unittest.TestCase):
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
         _add_test_image_to_storage(img_service._storage(), 'demo_project', 'welcome', 'jpg')
+        _add_test_image_to_storage(img_service._storage(), 'demo_project', 'delete_api_test', 'jpg')
         self.username, self.password = img_service.app.config['PROJECTS']['demo_project']['auth']
 
     def tearDown(self):
@@ -191,7 +192,87 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(rv.status_code, 500)
         self.check_valid_json_response(json_response, ('status', 'message', 'url'), dict(status='fail'))
 
-    def upload_with_auth(self, username, password, project, file, filename):
+    def test_successfully_delete(self):
+        """
+        the api should respond with status_code=200, status=ok, message=... when successfully deleted an image
+        """
+        rv = self.app.delete('/api/v1.0/images/demo_project/delete_api_test.jpg',
+                             headers={
+                                 'Authorization': 'Basic ' + base64.b64encode(self.username + \
+                                                                              ":" + self.password)
+                             })
+        self.assertEqual(rv.status_code, 200)
+        self.check_valid_json_response(json.loads(rv.data), ('status', 'message'), dict(status='ok'))
+
+    def test_non_authenticated_delete(self):
+        """
+        deleting an image without proper authentication should not succeed and the image must still be available
+        """
+        rv = self.app.delete('/api/v1.0/images/demo_project/welcome.jpg')
+        rv2 = self.app.get('/img/demo_project/welcome.jpg')
+        self.assertEqual(rv.status_code, 401)
+        self.assertEqual(rv2.status_code, 200)
+
+    def test_put_without_auth(self):
+        """
+        modifying an image without authentication should not succeed
+        """
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+            rv = self.app.put('/api/v1.0/images/demo_project/welcome.jpg',
+                              content_type='multipart/form-data',
+                              data={'file': (f, f.name)})
+            self.assertEqual(rv.status_code, 401)
+
+    def test_put(self):
+        """
+        using put an image can be created and overwritten
+        checks:
+            - image should not yet exist
+            - put image and check that it exists
+            - put resized image and check that it has been overwritten
+        """
+        url_to_test_image = '/img/demo_project/put_test.jpg'
+        test_not_exists_yet = self.app.get(url_to_test_image)
+        self.assertEqual(test_not_exists_yet.status_code, 404)
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+            rv = self.app.put(url_to_test_image,
+                              headers={
+                                  'Authorization': 'Basic ' + base64.b64encode(self.username + \
+                                                                               ":" + self.password)
+                              },
+                              content_type='multipart/form-data',
+                              data={'file': (f, f.name)})
+            self.assertEqual(rv.status_code, 201)
+            json_response = json.loads(rv.data)
+            self.check_valid_json_response(json_response, ('status', 'message', 'url'), dict(status='ok'))
+            # check that image exists now
+            rv, im = self.download_image(url_to_test_image)
+            self.assertEqual(rv.status_code, 200)
+            # now overwrite the image
+            resized_img = im.resize(20, 20)
+            tmp = io.BytesIO()
+            resized_img.save(tmp, 'JPEG')
+            tmp.seek(0)
+            # now overwrite
+            rv = self.app.put('/api/v1.0/images/demo_project/welcome.jpg',
+                              headers={
+                                  'Authorization': 'Basic ' + base64.b64encode(self.username + \
+                                                                               ":" + self.password)
+                              },
+                              content_type='multipart/form-data',
+                              data={'file': (tmp, f.name)})
+            self.assertEqual(rv.status_code, 201)
+            self.assertEqual(rv.status_code, 201)
+            json_response = json.loads(rv.data)
+            self.check_valid_json_response(json_response, ('status', 'message', 'url'), dict(status='ok'))
+            # and checkt that it's overwritten
+            rv, new_img = self.download_image(url_to_test_image)
+            self.assertEqual(rv.status_code, 200)
+            self.assertNotEqual(new_img.size, im.size)
+
+
+
+    def upload_with_auth(self, username, password, project, _file, filename):
         """try uploading the given file using http basic login"""
         return self.app.post('/upload',
                              content_type='multipart/form-data',
@@ -200,7 +281,7 @@ class APITestCase(unittest.TestCase):
                                                                               ":" + password)
                              },
                              data={'project': project,
-                                   'file': (file, filename)}
+                                   'file': (_file, filename)}
         )
 
     def upload_with_correct_auth(self, project, file, filename):
@@ -297,6 +378,28 @@ class FSStorageTestCase(unittest.TestCase):
             fd.write(b'asdf')
 
 
+    def test_delete_non_existing_image(self):
+        """
+        deleting a non-existing image should not succeed
+        """
+        non_existing_image = 'non_existing_name'
+        exists = self.storage.exists('demo_project', non_existing_image, 'jpg')
+        delete_succeeded = self.storage.delete('demo_project', non_existing_image, 'jpg')
+        self.assertFalse(exists)  # just to be sure
+        self.assertFalse(delete_succeeded)
+
+    def test_delete_existing_image(self):
+        """
+        tries to delete an existing image
+        """
+        prj, name, extension = 'demo_project', 'existing-image', 'jpg'
+        _add_test_image_to_storage(self.storage, prj, name, extension)
+        self.assertTrue(self.storage.exists(prj, name, extension))
+        delete_succeeded = self.storage.delete(prj, name, extension)
+        self.assertTrue(delete_succeeded)
+        self.assertTrue(self.storage.exists(prj, name, extension))
+
+
 if APP_ENGINE_AVAILABLE:
     """run all the storage tests on the appengine datastore too"""
 
@@ -308,6 +411,7 @@ if APP_ENGINE_AVAILABLE:
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
             from storage.appengine_datastore import DatastoreImageStorage  # must be imported AFTER creating a testbed
+
             self.storage = DatastoreImageStorage()
             _add_test_image_to_storage(self.storage, 'demo_project', 'welcome', 'jpg')
 
