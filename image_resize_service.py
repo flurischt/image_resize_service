@@ -16,6 +16,7 @@ app.config.from_pyfile(config)
 __storage = None
 api = swagger.docs(Api(app), apiVersion='0.1')
 
+
 def _storage():
     """returns access to the storage (save_image(), get() and exists())"""
     global __storage
@@ -152,6 +153,7 @@ class UploadResponse:
         'url': fields.String
     }
 
+
 @swagger.model
 class DeleteResponse:
     resource_fields = {
@@ -195,7 +197,7 @@ class UploadAPI(Resource):
 
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument('file', type = file, required=True,
+        self.reqparse.add_argument('file', type=file, required=True,
                                    help='No file provided', location='files')
         self.reqparse.add_argument('project', type=str, required=True,
                                    help='no or invalid project provided',
@@ -252,7 +254,7 @@ class ImageAPI(Resource):
 
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument('file', type = file, required=True,
+        self.reqparse.add_argument('file', type=file, required=True,
                                    help='No file provided', location='files')
         super(ImageAPI, self).__init__()
 
@@ -365,6 +367,7 @@ class ImageAPI(Resource):
         success = _storage().delete(project, name, extension)
         code = 200 if success else 404
         return {'status': 'ok' if success else 'fail', 'message': 'deleted' if success else ''}, code
+
 
 api.add_resource(UploadAPI, '/upload')
 api.add_resource(ImageAPI, '/api/v1.0/images/<project>/<name>.<extension>')
