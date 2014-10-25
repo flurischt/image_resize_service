@@ -9,12 +9,20 @@ from PIL import Image
 from werkzeug.utils import secure_filename
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_restful_swagger import swagger
+from flask_cors import CORS
 
 app = Flask(__name__)
 config = op.join(app.root_path, 'production.cfg')
 app.config.from_pyfile(config)
 __storage = None
 api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
+cors = CORS(app, resources={r"/upload": {"origins": "*"}})
+
+
+@app.after_request
+def add_header(response):
+    response.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Cache-Control, Authorization'
+    return response
 
 
 def _storage():
@@ -68,24 +76,20 @@ def _resize_image(project, name, extension, size):
     im = im.resize(
         _calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
     _storage().save_image(project, name, extension, im, size)
-    # not cool, appengines PIL version needs a tempfile and flasks
-    # send_file has trouble with it.: tempfile -> BytesIO
-    ret_file = tempfile.TemporaryFile()
-    im.save(ret_file, 'JPEG')
-    ret_file.seek(0)
-    return io.BytesIO(ret_file.read())
+    return _storage().get(project, name, extension, im, size)
 
 
 def _serve_image(project, name, size, extension):
+    mime_type = 'image/%s' % ("jpeg" if extension == "jpg" else extension, )
     if project not in app.config['PROJECTS'] \
             or (size and size not in app.config['PROJECTS'][project][
                 'dimensions']):
         raise NotFound()
     if not _storage().exists(project, name, extension, size):
         resized_file = _resize_image(project, name, extension, size)
-        return send_file(resized_file, mimetype='image/jpeg')
+        return send_file(resized_file, mimetype=mime_type)
     return send_file(_storage().get(project, name, extension, size),
-                     mimetype='image/jpeg')
+                     mimetype='image/%s' % (mime_type, ))
 
 
 def _check_auth(username, password, project):
@@ -194,10 +198,7 @@ def _save_to_storage(uploaded_file, project, name, extension):
     try:
         uploaded_file.seek(0)
         im = Image.open(uploaded_file)
-        jpg_image = tempfile.TemporaryFile()
-        im.save(jpg_image, 'JPEG')
-        jpg_image.seek(0)
-        _storage().save(project, name, extension, jpg_image.read())
+        _storage().save_image(project, name, extension, im)
         return _upload_json_response(True,
                                      url=url_for('serve_original_image',
                                                  project=project, name=name,
@@ -256,6 +257,7 @@ class UploadAPI(Resource):
             }
         ]
     )
+
     @marshal_with(UploadResponse.resource_fields)
     def post(self):
         args = self.reqparse.parse_args()

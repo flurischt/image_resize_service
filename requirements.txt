@@ -10,3 +10,4 @@ pytz==2014.4
 six==1.7.3
 wsgiref==0.1.2
 flask-restful-swagger==0.12
+flask-cors
