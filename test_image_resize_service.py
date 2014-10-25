@@ -6,6 +6,7 @@ import unittest
 import io
 import sys
 import os
+import tempfile
 
 from PIL import Image
 from werkzeug.exceptions import NotFound
@@ -40,7 +41,7 @@ except ImportError:
 
 def _add_test_image_to_storage(storage, project, name, extension):
     """adds the welcome image to a storage. used for testing empty storages"""
-    with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+    with open('test_images/%s_image.%s' % (extension, extension), 'r') as f:
         storage.save(project, name, extension, f.read())
 
 
@@ -336,21 +337,23 @@ class FSStorageTestCase(unittest.TestCase):
         self.storage = FileImageStorage(
             img_service.app.config['FILESYSTEM_STORAGE_SOURCE_DIR'],
             img_service.app.config['FILESYSTEM_STORAGE_RESIZED_DIR'])
+        self.project = 'demo_project'
 
     def tearDown(self):
         pass
 
     def test_available_image_exists(self):
-        """storage.exists() should return true for available images"""
-        self.assertTrue(self.storage.exists('demo_project', 'welcome', 'jpg'))
+        _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
+        self.assertTrue(self.storage.exists('demo_project', 'test_image', 'jpg'))
 
     def test_unavailable_image_exists_not(self):
         """storage.exists() should return false for unavailable images"""
-        self.assertFalse(self.storage.exists('demo_project', 'blabla', 'png'))
+        self.assertFalse(self.storage.exists('demo_project', 'not_existing', 'png'))
 
     def test_get_existing_image(self):
         """get must return images of type JPEG with a valid dimension"""
-        im = Image.open(self.storage.get('demo_project', 'welcome', 'jpg'))
+        _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
+        im = Image.open(self.storage.get('demo_project', 'test_image', 'jpg'))
         self.assertTrue(
             im.size[0] > 0 and im.size[1] > 0)  # image has any valid size
         self.assertEqual(im.format, 'JPEG')
@@ -365,7 +368,8 @@ class FSStorageTestCase(unittest.TestCase):
             and size) that already exists
             must overwrite the image
         """
-        im = Image.open(self.storage.get('demo_project', 'welcome', 'jpg'))
+        _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
+        im = Image.open(self.storage.get('demo_project', 'test_image', 'jpg'))
         # save two new images in the storage
         self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im)
         self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im,
@@ -392,22 +396,23 @@ class FSStorageTestCase(unittest.TestCase):
         """after saving a not yet existing image
             it must be available in the storage
         """
-        fd = self.storage.get('demo_project', 'welcome', 'jpg')
+        _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
+        fd = self.storage.get('demo_project', 'test_image', 'jpg')
         im = Image.open(fd)
         resized_img = im.resize((20, 30))
         # invent a random size to make sure it does not yet exist in storage
         size = 'xtrasmall'
         random.seed()
-        while self.storage.exists('demo_project', 'welcome', 'jpg', size):
+        while self.storage.exists('demo_project', 'test_image', 'jpg', size):
             size += str(random.randint(0, 10))
         self.assertFalse(
-            self.storage.exists('demo_project', 'welcome', 'jpg', size))
-        self.storage.save_image('demo_project', 'welcome', 'jpg', resized_img,
+            self.storage.exists('demo_project', 'test_image', 'jpg', size))
+        self.storage.save_image('demo_project', 'test_image', 'jpg', resized_img,
                                 size)
         self.assertTrue(
-            self.storage.exists('demo_project', 'welcome', 'jpg', size))
+            self.storage.exists('demo_project', 'test_image', 'jpg', size))
         im_from_storage = Image.open(
-            self.storage.get('demo_project', 'welcome', 'jpg', size))
+            self.storage.get('demo_project', 'test_image', 'jpg', size))
         # storage must return a JPEG image with the chosen size
         self.assertEqual(im_from_storage.size, resized_img.size)
         self.assertEqual(im_from_storage.format, 'JPEG')
@@ -418,7 +423,8 @@ class FSStorageTestCase(unittest.TestCase):
             time or allow write() calls but do not store it (see the different
             implementations in FS and Datastore Testcases)
         """
-        fd = self.storage.get('demo_project', 'welcome', 'jpg')
+        _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
+        fd = self.storage.get('demo_project', 'test_image', 'jpg')
         with self.assertRaises(IOError):
             fd.seek(0)
             fd.write(b'asdf')
@@ -444,6 +450,14 @@ class FSStorageTestCase(unittest.TestCase):
         delete_succeeded = self.storage.delete(prj, name, extension)
         self.assertTrue(delete_succeeded)
         self.assertFalse(self.storage.exists(prj, name, extension))
+
+    def test_save_png_image(self):
+        with open('test_images/png_image.png', 'rb') as f:
+            img = Image.open(f)
+            self.storage.save_image(self.project, "test_image", "png", img)
+
+        im_from_storage = Image.open(self.storage.get(self.project, 'test_image', 'png'))
+        self.assertEqual(im_from_storage.format, 'PNG')
 
 
 if APP_ENGINE_AVAILABLE:

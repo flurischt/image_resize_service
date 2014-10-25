@@ -13,7 +13,9 @@ class ImageStorage(object):
     def save_image(self, project, name, extension, pil_image, size=None):
         """put the given pil image to the storage"""
         f = tempfile.TemporaryFile()
-        pil_image.save(f, 'JPEG')
+        img_format = pil_image.format if pil_image.format is not None else extension.upper()
+
+        pil_image.save(f, img_format)
         f.seek(0)
         self.save(project, name, extension, f.read(), size)
 
