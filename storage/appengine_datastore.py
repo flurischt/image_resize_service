@@ -1,7 +1,7 @@
 import io
 
 from werkzeug.exceptions import NotFound
-from google.appengine.ext import db, blobstore
+from google.appengine.ext import db
 from google.appengine.ext.db import Error as DatastoreError
 
 from storage import ImageStorage
