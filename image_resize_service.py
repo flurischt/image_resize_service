@@ -227,8 +227,8 @@ def _save_to_storage(uploaded_file, project, name, extension):
                                                  extension=extension))
     except IOError:
         return _upload_json_response(False,
-                                     message='your uploaded binary data does \
-                                     not represent a recognized image format.')
+                                     message='your uploaded binary data does '
+                                             'not represent a recognized image format.')
 
 
 class UploadAPI(Resource):

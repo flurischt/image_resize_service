@@ -12,6 +12,6 @@ def pil_format_from_mime_type(mime_type):
 
 
 def pil_format_from_file_extension(file_extension):
-    mime_type = mimetypes.types_map['.%s' % file_extension]
+    mime_type = mimetypes.types_map['.%s' % file_extension.lower()]
     return pil_format_from_mime_type(mime_type)
 
