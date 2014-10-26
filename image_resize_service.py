@@ -1,6 +1,7 @@
 import os.path as op
 import io
 import tempfile
+import mimetypes
 
 from functools import wraps
 from flask import Flask, render_template, send_file, request, url_for, Response
@@ -76,20 +77,19 @@ def _resize_image(project, name, extension, size):
     im = im.resize(
         _calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
     _storage().save_image(project, name, extension, im, size)
-    return _storage().get(project, name, extension, im, size)
 
 
 def _serve_image(project, name, size, extension):
-    mime_type = 'image/%s' % ("jpeg" if extension == "jpg" else extension, )
+    mime_type = mimetypes.types_map['.%s' % extension]
     if project not in app.config['PROJECTS'] \
             or (size and size not in app.config['PROJECTS'][project][
                 'dimensions']):
         raise NotFound()
+    #resize if not exist
     if not _storage().exists(project, name, extension, size):
-        resized_file = _resize_image(project, name, extension, size)
-        return send_file(resized_file, mimetype=mime_type)
+        _resize_image(project, name, extension, size)
     return send_file(_storage().get(project, name, extension, size),
-                     mimetype='image/%s' % (mime_type, ))
+                     mimetype=mime_type)
 
 
 def _check_auth(username, password, project):

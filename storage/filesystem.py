@@ -54,5 +54,5 @@ class FileImageStorage(ImageStorage):
         else:
             filename = secure_filename(name + '.' + extension)
             directory = self.SOURCE_DIR
-        directory = directory + '/' + project
+        directory = directory + project
         return safe_join(directory, filename)
