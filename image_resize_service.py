@@ -13,8 +13,9 @@ from flask_restful_swagger import swagger
 from flask_cors import CORS
 
 app = Flask(__name__)
-config = op.join(app.root_path, 'production.cfg')
-app.config.from_pyfile(config)
+
+app.config.from_pyfile('default.cfg', silent=True)
+app.config.from_pyfile('production.cfg', silent=True)
 __storage = None
 api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
 cors = CORS(app, resources={r"/upload": {"origins": "*"}})
