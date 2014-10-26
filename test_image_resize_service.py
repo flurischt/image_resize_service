@@ -460,40 +460,40 @@ class FSStorageTestCase(unittest.TestCase):
         self.assertEqual(im_from_storage.format, 'PNG')
 
 
-# if APP_ENGINE_AVAILABLE:
-#     """run all the storage tests on the appengine datastore too"""
-#
-#     class DatastoreStorageTestCase(FSStorageTestCase):
-#         def setUp(self):
-#             super(DatastoreStorageTestCase, self).setUp()
-#             self.testbed = testbed.Testbed()
-#             self.testbed.activate()
-#             self.testbed.init_datastore_v3_stub()
-#
-#             self.storage = DatastoreImageStorage()
-#             _add_test_image_to_storage(self.storage, 'demo_project', 'welcome',
-#                                        'jpg')
-#
-#         def tearDown(self):
-#             self.testbed.deactivate()
-#             super(DatastoreStorageTestCase, self).tearDown()
-#
-#         def test_image_fd_is_readonly(self):
-#             """since the appengine implementation returns a io.BytesIO
-#                 it is writable. let's just test that our writes do not end up
-#                 in the datastore
-#             """
-#             # overwrite the fd with a resized image
-#             fd = self.storage.get('demo_project', 'welcome', 'jpg')
-#             im = Image.open(fd)
-#             new_im = im.resize((im.size[0] + 1, im.size[0] + 1))
-#             fd.seek(0)
-#             new_im.save(fd, 'JPEG')
-#             fd.close()
-#             # load the image again and compare
-#             fd = self.storage.get('demo_project', 'welcome', 'jpg')
-#             im = Image.open(fd)
-#             self.assertNotEqual(im.size, new_im.size)
+if APP_ENGINE_AVAILABLE:
+    """run all the storage tests on the appengine datastore too"""
+
+    class DatastoreStorageTestCase(FSStorageTestCase):
+        def setUp(self):
+            super(DatastoreStorageTestCase, self).setUp()
+            self.testbed = testbed.Testbed()
+            self.testbed.activate()
+            self.testbed.init_datastore_v3_stub()
+
+            self.storage = DatastoreImageStorage()
+            _add_test_image_to_storage(self.storage, 'demo_project', 'welcome',
+                                       'jpg')
+
+        def tearDown(self):
+            self.testbed.deactivate()
+            super(DatastoreStorageTestCase, self).tearDown()
+
+        def test_image_fd_is_readonly(self):
+            """since the appengine implementation returns a io.BytesIO
+                it is writable. let's just test that our writes do not end up
+                in the datastore
+            """
+            # overwrite the fd with a resized image
+            fd = self.storage.get('demo_project', 'welcome', 'jpg')
+            im = Image.open(fd)
+            new_im = im.resize((im.size[0] + 1, im.size[0] + 1))
+            fd.seek(0)
+            new_im.save(fd, 'JPEG')
+            fd.close()
+            # load the image again and compare
+            fd = self.storage.get('demo_project', 'welcome', 'jpg')
+            im = Image.open(fd)
+            self.assertNotEqual(im.size, new_im.size)
 
 if __name__ == '__main__':
     unittest.main()
