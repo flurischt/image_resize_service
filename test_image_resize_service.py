@@ -303,6 +303,38 @@ class APITestCase(unittest.TestCase):
             self.assertEqual(rv.status_code, 200)
             self.assertNotEqual(new_img.size, im.size)
 
+    def test_upload_with_auth_token(self):
+        rv = None
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as _file:
+            rv = self.upload_with_auth_token("http://127.0.0.1:8000", "demo", 'demo_project', _file, "token_upload.jpg")
+        self.assertEqual(rv.status_code, 201)
+
+    def test_upload_with_invalid_auth_token(self):
+        project = 'demo_project'
+        rv = None
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as _file:
+            rv = self.upload_with_auth_token("http://127.0.0.1:8000", "invalid", 'demo_project', _file, "invalid_upload.jpg")
+        self.assertEqual(rv.status_code, 401)
+
+    def test_upload_with_invalid_origin(self):
+        project = 'demo_project'
+        rv = None
+        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as _file:
+            rv = self.upload_with_auth_token("http://some_page.com", "demo", 'demo_project', _file, "invalid_upload.jpg")
+        self.assertEqual(rv.status_code, 401)
+
+    def upload_with_auth_token(self, origin, token, project, _file, filename):
+        return self.app.post('/upload',
+                             content_type='multipart/form-data',
+                             headers={
+                                 'Authorization': 'Token ' + token,
+                                 'Origin': origin
+                             },
+                             data={'project': project,
+                                   'file': (_file, filename)})
+
+
+
     def upload_with_auth(self, username, password, project, _file, filename):
         """try uploading the given file using http basic login"""
         return self.app.post('/upload',

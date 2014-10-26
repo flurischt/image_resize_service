@@ -26,7 +26,6 @@ def add_header(response):
     response.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Cache-Control, Authorization'
     return response
 
-
 def _storage():
     """returns access to the storage (save_image(), get() and exists())"""
     global __storage
@@ -108,6 +107,13 @@ def _check_auth(username, password, project):
     return username == correct_user and password == correct_pass
 
 
+def _check_auth_token(origin, token, project):
+    if project not in app.config['PROJECTS']:
+        return False
+    correct_origin, correct_token = app.config['PROJECTS'][project]['auth_token']
+    return token == correct_token and origin == correct_origin
+
+
 def _authenticate():
     """Sends a 401 response that enables basic auth"""
     return Response(
@@ -121,11 +127,21 @@ def _authenticate():
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
         # temp workaround to make this decorator work with functions
         # and the restful class TODO: fix this
         project = kwargs['project'] if 'project' in kwargs else request.form[
             'project']
+
+        #check if it has auth token
+        auth_header = request.headers.get('Authorization')
+        origin = request.headers.get('Origin')
+        if auth_header is not None and origin is not None and auth_header.startswith('Token'):
+            #get the origin header
+            key, token = auth_header.split(" ")
+            if _check_auth_token(origin, token, project):
+                return f(*args, **kwargs)
+
+        auth = request.authorization
         if not auth or not _check_auth(auth.username, auth.password, project):
             return _authenticate()
         return f(*args, **kwargs)
