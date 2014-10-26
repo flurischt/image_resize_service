@@ -16,6 +16,8 @@ class ImageStorage(object):
         pil_image.save(f, utils.pil_format_from_file_extension(extension))
         f.seek(0)
         self.save(project, name, extension, f.read(), size)
+        f.seek(0)
+        return f
 
     @abstractmethod
     def save(self, project, name, extension, binary_data, size=None):

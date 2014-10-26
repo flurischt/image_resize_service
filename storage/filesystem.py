@@ -15,7 +15,7 @@ class FileImageStorage(ImageStorage):
         self.RESIZED_DIR = RESIZED_DIR
 
     def exists(self, project, name, extension, size=None):
-        return op.isfile(self._path_to_image(project, name, extension, size=size))
+        return op.isfile(self._path_to_image(project, name, extension, size))
 
     def save(self, project, name, extension, binary_image_data, size=None):
         with open(self._path_to_image(project, name, extension, size), 'wb') as f:

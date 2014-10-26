@@ -60,12 +60,10 @@ class APITestCase(unittest.TestCase):
             self.testbed = testbed.Testbed()
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
-        _add_test_image_to_storage(img_service._storage(), 'demo_project',
-                                   'welcome', 'jpg')
-        _add_test_image_to_storage(img_service._storage(), 'demo_project',
-                                   'delete_api_test', 'jpg')
         self.username, self.password = \
             img_service.app.config['PROJECTS']['demo_project']['auth']
+        _add_test_image_to_storage(img_service._storage(), 'demo_project',
+                                   'test_image', 'jpg')
 
     def tearDown(self):
         if APP_ENGINE_AVAILABLE:
@@ -84,26 +82,26 @@ class APITestCase(unittest.TestCase):
 
     def test_resized_image(self):
         """just download an existing fullsize image"""
-        rv, im = self.download_image('/img/demo_project/welcome@small.jpg')
+        rv, im = self.download_image('/img/demo_project/test_image@small.jpg')
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.mimetype, 'image/jpeg')
         self.assertEqual(im.format, 'JPEG')
 
     def test_full_image(self):
         """download a resized image"""
-        rv, im = self.download_image('/img/demo_project/welcome.jpg')
+        rv, im = self.download_image('/img/demo_project/test_image.jpg')
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.mimetype, 'image/jpeg')
         self.assertEqual(im.format, 'JPEG')
 
     def test_wrong_method_resized_img(self):
         """resized image url only supports GET"""
-        rv = self.app.post('/img/demo_project/welcome@small.jpg')
+        rv = self.app.post('/img/demo_project/test_image@small.jpg')
         self.assertEqual(rv.status_code, 405)  # method not allowed
 
     def test_wrong_method_img(self):
         """the full image url only supports GET"""
-        rv = self.app.post('/img/demo_project/welcome.jpg')
+        rv = self.app.post('/img/demo_project/test_image.jpg')
         self.assertEqual(rv.status_code, 405)
 
     def test_wrong_method_upload(self):
@@ -118,7 +116,7 @@ class APITestCase(unittest.TestCase):
 
     def test_invalid_project(self):
         """wrong projects return a 404 error"""
-        rv = self.app.get('/img/bla/welcome@small.jpg')
+        rv = self.app.get('/img/bla/test_image@small.jpg')
         self.assertEqual(rv.status_code, 404)
         # same test for fullsize images
         rv = self.app.get('/img/bla/welcome.jpg')
@@ -126,7 +124,7 @@ class APITestCase(unittest.TestCase):
 
     def test_invalid_size(self):
         """unsupported dimensions return a 404 error"""
-        rv = self.app.get('/img/demo_project/welcome@blabla.jpg')
+        rv = self.app.get('/img/demo_project/test_image@fubar.jpg')
         self.assertEqual(rv.status_code, 404)  # not found
 
     def test_correct_mimetype(self):
@@ -135,7 +133,7 @@ class APITestCase(unittest.TestCase):
                 img_service.app.config['PROJECTS']['demo_project'][
                     'dimensions'].items():
             rv, im = self.download_image(
-                '/img/demo_project/welcome@' + dimension_name + '.jpg')
+                '/img/demo_project/test_image@' + dimension_name + '.jpg')
             max_width, max_height = dimension
             self.assertEqual(rv.status_code, 200)
             self.assertEqual(rv.mimetype, 'image/jpeg')
@@ -145,14 +143,14 @@ class APITestCase(unittest.TestCase):
 
     def test_upload_wrong_credentials(self):
         """try to upload to a valid project using wrong credentials"""
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
             rv = self.upload_with_auth('fred', 'frickler', 'demo_project', f,
                                        'upload_test.jpg')
         self.assertEqual(rv.status_code, 401)  # Unauthorized
 
     def test_upload_wrong_project(self):
         """try to upload to an invalid project using valid credentials"""
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
             rv = self.upload_with_correct_auth('blabla', f, 'upload_test.jpg')
         self.assertEqual(rv.status_code, 401)  # Unauthorized
 
@@ -175,7 +173,7 @@ class APITestCase(unittest.TestCase):
             { 'status' : 'ok', 'url' : 'url_to_the_image'}
         """
         # upload a valid image
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
             rv = self.upload_with_correct_auth('demo_project', f, 'upload.jpg')
         json_response = json.loads(rv.data)
         # and download it
@@ -193,7 +191,7 @@ class APITestCase(unittest.TestCase):
             API must response with a json containing status='fail' and an
             error message 'message'. expected statuscode = 500
         """
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
             rv = self.upload_with_correct_auth('demo_project', f, 'upload.exe')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
@@ -207,7 +205,7 @@ class APITestCase(unittest.TestCase):
             and an error message 'message'. expected statuscode = 500
         """
         rv = self.upload_with_correct_auth('demo_project',
-                                           io.BytesIO(r'asdfasdf'),
+                                           io.BytesIO(r'theAnswerIs42'),
                                            'upload.jpg')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
@@ -220,6 +218,8 @@ class APITestCase(unittest.TestCase):
         the api should respond with status_code=200, status=ok, message=...
         when successfully deleted an image
         """
+        _add_test_image_to_storage(img_service._storage(), 'demo_project',
+                                   'delete_api_test', 'jpg')
         rv = self.app.delete(
             '/api/v1.0/images/demo_project/delete_api_test.jpg',
             headers={
@@ -237,8 +237,8 @@ class APITestCase(unittest.TestCase):
         deleting an image without proper authentication should not succeed and
         the image must still be available
         """
-        rv = self.app.delete('/api/v1.0/images/demo_project/welcome.jpg')
-        rv2 = self.app.get('/img/demo_project/welcome.jpg')
+        rv = self.app.delete('/api/v1.0/images/demo_project/test_image.jpg')
+        rv2 = self.app.get('/img/demo_project/test_image.jpg')
         self.assertEqual(rv.status_code, 401)
         self.assertEqual(rv2.status_code, 200)
 
@@ -246,8 +246,8 @@ class APITestCase(unittest.TestCase):
         """
         modifying an image without authentication should not succeed
         """
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
-            rv = self.app.put('/api/v1.0/images/demo_project/welcome.jpg',
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
+            rv = self.app.put('/api/v1.0/images/demo_project/test_image.jpg',
                               content_type='multipart/form-data',
                               data={'file': (f, f.name)})
             self.assertEqual(rv.status_code, 401)
@@ -261,7 +261,7 @@ class APITestCase(unittest.TestCase):
             - put resized image and check that it has been overwritten
         """
         url_to_test_image = '/img/demo_project/put_test.jpg'
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as f:
+        with open('test_images/jpg_image.jpg', 'r') as f:
             rv = self.app.put('/api/v1.0/images/demo_project/put_test.jpg',
                               headers={
                                   'Authorization': 'Basic ' + base64.b64encode(
@@ -305,21 +305,21 @@ class APITestCase(unittest.TestCase):
 
     def test_upload_with_auth_token(self):
         rv = None
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as _file:
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as _file:
             rv = self.upload_with_auth_token("http://127.0.0.1:8000", "demo", 'demo_project', _file, "token_upload.jpg")
         self.assertEqual(rv.status_code, 201)
 
     def test_upload_with_invalid_auth_token(self):
         project = 'demo_project'
         rv = None
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as _file:
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as _file:
             rv = self.upload_with_auth_token("http://127.0.0.1:8000", "invalid", 'demo_project', _file, "invalid_upload.jpg")
         self.assertEqual(rv.status_code, 401)
 
     def test_upload_with_invalid_origin(self):
         project = 'demo_project'
         rv = None
-        with open('demo_image_dir/images/demo_project/welcome.jpg', 'r') as _file:
+        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as _file:
             rv = self.upload_with_auth_token("http://some_page.com", "demo", 'demo_project', _file, "invalid_upload.jpg")
         self.assertEqual(rv.status_code, 401)
 

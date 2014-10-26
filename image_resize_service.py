@@ -89,12 +89,10 @@ def _serve_image(project, name, size, extension):
     #resize if not exist
     if not _storage().exists(project, name, extension, size):
         pil_image = _resize_image(project, name, extension, size)
-        image_file = tempfile.TemporaryFile()
-        pil_format = utils.pil_format_from_mime_type(mime_type)
-        pil_image.save(image_file, pil_format)
+        image_file = _storage().save_image(project, name, extension, pil_image, size)
     else:
         image_file = _storage().get(project, name, extension, size)
-    return send_file(image_file, mimetype=mime_type)
+    return send_file(image_file, mimetype=mime_type, add_etags=False)
 
 
 def _check_auth(username, password, project):
