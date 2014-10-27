@@ -115,13 +115,11 @@ def _authenticate():
     setup demo project, create all directories if FILESYSTEM is used as storage...
 """
 storage = _storage()
-if app.config['STORAGE'] == 'FILESYSTEM':
-    for project in app.config['PROJECTS']:
-        if "demo_project" == project:
-            _storage().project_dir(project)
-            if not os.path.isfile(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg'):
-                with open(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg', 'r') as f:
-                    storage.save(project, "welcome", "jpg", f.read())
+if app.config['STORAGE'] == 'FILESYSTEM' and 'demo_project' in app.config['PROJECTS']:
+    project_dir = _storage().project_dir('demo_project')
+    if not os.path.isfile(os.path.join(project_dir, "welcome.jpg")):
+        with open(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg', 'r') as f:
+            storage.save('demo_project', "welcome", "jpg", f.read())
 
 
 def requires_auth(f):
