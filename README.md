@@ -89,8 +89,14 @@ TODO
 -----
  - add some info on how to run this app using a webserver
 
+Copyright
+-------
+- demo image taken from http://www.reddit.com/r/EarthPorn/comments/20vygp/the_eiger_switzerland_1600x1200/
+
 License
 -------
 BSD 2-Clause, see the LICENSE file
+
+
 
 Copyright 2014 Flurin Rindisbacher
