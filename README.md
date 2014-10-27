@@ -62,9 +62,13 @@ DO NOT install Pillow into lib/. use virtualenv for development or install it gl
 
 API
 -----
-resizing images
+fitting images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@dimension.extension
+GET /img/PROJECTNAME/image_name_without_extension@fit-<size>.extension
+-----
+cropping images
+---
+GET /img/PROJECTNAME/image_name_without_extension@crop-<size>.extension
 
 uploading images
 ---

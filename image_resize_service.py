@@ -6,11 +6,12 @@ import utils
 from functools import wraps
 from flask import Flask, render_template, send_file, request, url_for, Response
 from werkzeug.exceptions import NotFound
-from PIL import Image
+from PIL import Image, ImageOps
 from werkzeug.utils import secure_filename
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_restful_swagger import swagger
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
 
@@ -19,9 +20,6 @@ app.config.from_pyfile('production.cfg', silent=True)
 __storage = None
 api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
 cors = CORS(app, resources={r"/upload": {"origins": "*"}})
-import os
-
-
 
 
 @app.after_request
@@ -45,55 +43,44 @@ def _storage():
     return __storage
 
 
-def _calc_size(target_size, image):
-    """
-    calculates the new image size such that it fits into the target_size
-    bounding box and the proportions are still ok.
-    :param target_size: a tuple containing (max_width, max_height) as ints. \
-    the bounding box.
-    :param image: a PIL or Pillow image
-    :return: a tuple containing the new width and height as ints.
-    """
-    max_width, max_height = target_size
-    width, height = image.size
-    if max_width >= width and max_height >= height:
-        return image.size  # no resize needed
-    scale = min(max_width / float(width), max_height / float(height))
-    return int(width * scale), int(height * scale)
+def _fit_image(image, size):
+    image.thumbnail(size, Image.ANTIALIAS)
+    return image
 
 
-def _resize_image(project, name, extension, size):
-    """
-    resizes the image identified by project, name and extension and saves it
-    in the storage.
-    :param project: a valid project.
-        YOU NEED TO HAVE CHECKED THAT THIS PROJECT EXISTS
-    :param name: the image name (prefix without dimension or extension)
-    :param extension: the file extension
-    :param size: the name of the new size as a string
-        (e.g "large", "small" depends on your .cfg file)
-    """
-    if not _storage().exists(project, name, extension):
-        raise NotFound()
-    im = Image.open(_storage().get(project, name, extension))
-    im = im.resize(
-        _calc_size(app.config['PROJECTS'][project]['size'][size], im))
-    _storage().save_image(project, name, extension, im, size)
+def _crop_image(image, size):
+    im = ImageOps.fit(image, size, Image.ANTIALIAS, 0.0, (0.5, 0.5))
     return im
 
 
-def _serve_image(project, name, size, extension):
+def _serve_image(project, name, extension, mode=None, size=None):
     mime_type = mimetypes.types_map['.%s' % extension]
-    if project not in app.config['PROJECTS'] \
-            or (size and size not in app.config['PROJECTS'][project][
-                'size']):
-        raise NotFound()
-    #resize if not exist
-    if not _storage().exists(project, name, extension, size):
-        pil_image = _resize_image(project, name, extension, size)
-        image_file = _storage().save_image(project, name, extension, pil_image, size)
+    image_file = None
+    if not mode is None or not size is None:
+        if not mode in app.config['PROJECTS'][project]["mode"]:
+            raise NotFound()
+        if not size in app.config['PROJECTS'][project]["size"]:
+            raise NotFound()
+        size_value = app.config['PROJECTS'][project]["size"][size]
+        storage_mode = "%s-%s" % (mode, size)
+        if not _storage().exists(project, name, extension, storage_mode):
+            #check if original file exists
+            if not _storage().exists(project, name, extension):
+                raise NotFound()
+            original_image = Image.open(_storage().get(project, name, extension))
+            #resize if not exist
+            if mode == "fit":
+                pil_image = _fit_image(original_image, size_value)
+            if mode == "crop":
+                pil_image = _crop_image(original_image, size_value)
+            image_file = _storage().save_image(project, name, extension, pil_image, storage_mode)
+        else:
+            image_file = _storage().get(project, name, extension, storage_mode)
+        image_file.seek(0)
     else:
-        image_file = _storage().get(project, name, extension, size)
+        image_file = _storage().get(project, name, extension)
+
+
     return send_file(image_file, mimetype=mime_type, add_etags=False)
 
 
@@ -128,12 +115,13 @@ def _authenticate():
     setup demo project, create all directories if FILESYSTEM is used as storage...
 """
 storage = _storage()
-for project in app.config['PROJECTS']:
-    if "demo_project" == project:
-        _storage().project_dir(project)
-        if not os.path.isfile(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg'):
-            with open(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg', 'r') as f:
-                storage.save(project, "welcome", "jpg", f.read())
+if app.config['STORAGE'] == 'FILESYSTEM':
+    for project in app.config['PROJECTS']:
+        if "demo_project" == project:
+            _storage().project_dir(project)
+            if not os.path.isfile(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg'):
+                with open(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg', 'r') as f:
+                    storage.save(project, "welcome", "jpg", f.read())
 
 
 def requires_auth(f):
@@ -168,6 +156,11 @@ def _upload_json_response(success, **kwargs):
     return res_dict, code
 
 
+def serve_image(project_name, name, extension, mode=None, size=None):
+    if project_name not in app.config['PROJECTS']:
+        raise NotFound()
+    return _serve_image(project_name, name, extension, mode, size)
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -175,22 +168,16 @@ def index():
 
 @app.route('/img/<project>/<name>.<extension>', methods=['GET'])
 def serve_original_image(project, name, extension):
-    return _serve_image(project, name, None, extension)
+    return serve_image(project, name, extension)
 
 
-@app.route('/img/<project>/<name>@<size>.<extension>', methods=['GET'])
-def serve_resized_image(project, name, size, extension):
-    """
-    serves the url /img/project/name@size.extension
-    e.g /img/demo_project/welcome@small.jpg either returns an image of
-    mimetype image/jpeg or a NotFound() 404 error
-    :param project: a project that exists in your production.cfg file
-    :param name: the image name
-    :param size: the dimension. should be configured in your config file
-    :param extension: the image file extension
-    :return: an image or a 404 error
-    """
-    return _serve_image(project, name, size, extension)
+@app.route('/img/<project_name>/<name>@<mode>.<extension>', methods=['GET'])
+def serve_resized_image(project_name, name, mode, extension):
+    try:
+        resize_mode, size = mode.split('-')
+    except:
+        raise NotFound
+    return serve_image(project_name, name, extension, resize_mode, size)
 
 
 @app.route('/uploadform', methods=['GET'])
@@ -216,16 +203,6 @@ class DeleteResponse:
 
 
 def _save_to_storage(uploaded_file, project, name, extension):
-    """
-    puts the given file into the storage. used for POST and PUT service.
-    an already existing image is overwritten. new images are created.
-    :param uploaded_file: a file descriptor
-    :param project: the already validated project.
-        ITS YOUR TURN TO CHECK THAT THIS PROJECT EXISTS!
-    :param name: name to be used
-    :param extension: extension to be used
-    :return:
-    """
     if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
         return _upload_json_response(False,
                                      message='unsupported file extension.')

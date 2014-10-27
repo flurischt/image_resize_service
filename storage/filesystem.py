@@ -28,31 +28,31 @@ class FileImageStorage(ImageStorage):
             os.makedirs(project_dir)
         return project_dir
 
-    def exists(self, project, name, extension, size=None):
-        return op.isfile(self._path_to_image(project, name, extension, size))
+    def exists(self, project, name, extension, mode=None):
+        return op.isfile(self._path_to_image(project, name, extension, mode))
 
-    def save(self, project, name, extension, binary_image_data, size=None):
-        with open(self._path_to_image(project, name, extension, size), 'wb') as f:
+    def save(self, project, name, extension, binary_image_data, mode=None):
+        with open(self._path_to_image(project, name, extension, mode), 'wb') as f:
             f.write(binary_image_data)
 
-    def get(self, project, name, extension, size=None):
-        filename = self._path_to_image(project, name, extension, size)
+    def get(self, project, name, extension, mode=None):
+        filename = self._path_to_image(project, name, extension, mode)
         if op.isfile(filename):
             return file(filename, 'rb')
         else:
             raise NotFound()
 
-    def delete(self, project, name, extension, size=None):
-        if not self.exists(project, name, extension, size):
+    def delete(self, project, name, extension, mode=None):
+        if not self.exists(project, name, extension, mode):
             return False
-        path_to_image = self._path_to_image(project, name, extension, size)
+        path_to_image = self._path_to_image(project, name, extension, mode)
         try:
             os.remove(path_to_image)
-            return not self.exists(project, name, extension, size)
+            return not self.exists(project, name, extension, mode)
         except OSError:
             return False
 
-    def _path_to_image(self, project, name, extension, size=None):
+    def _path_to_image(self, project, name, extension, mode=None):
         """
         constructs a path to an image.
         if a size is set, this returns a path to resized_dir. otherwise a path to source_dir is returned.
@@ -62,8 +62,8 @@ class FileImageStorage(ImageStorage):
         :param size: a tuple containing max_width and max_height as ints
         :return: the path to the image
         """
-        if size:
-            filename = secure_filename('%s_%s.%s' % (name, size, extension))
+        if mode:
+            filename = secure_filename('%s_%s.%s' % (name, mode, extension))
             directory = self.resize_dir(project)
         else:
             filename = secure_filename(name + '.' + extension)

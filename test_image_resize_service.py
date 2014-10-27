@@ -333,42 +333,55 @@ class APITestCase(unittest.TestCase):
 
     def test_correct_mimetype(self):
         """make sure we get a jpeg image and it's dimension fits the config"""
-        for dimension_name, dimension in \
+        for size_name, size in \
                 img_service.app.config['PROJECTS']['demo_project'][
                     'size'].items():
-            rv, im = self.download_image(
-                '/img/demo_project/test_image@' + dimension_name + '.jpg')
-            max_width, max_height = dimension
-            self.assertEqual(rv.status_code, 200)
-            self.assertEqual(rv.mimetype, 'image/jpeg')
-            self.assertEqual(im.format, 'JPEG')
-            self.assertTrue(
-                im.size[0] <= max_width and im.size[1] <= max_height)
+            for mode in \
+                img_service.app.config['PROJECTS']['demo_project'][
+                    'mode']:
+                rv, im = self.download_image(
+                    '/img/demo_project/test_image@%s-%s.jpg' % (mode, size_name))
+                max_width, max_height = size
+                self.assertEqual(rv.status_code, 200)
+                self.assertEqual(rv.mimetype, 'image/jpeg')
+                self.assertEqual(im.format, 'JPEG')
+                self.assertTrue(im.size[0] <= max_width and im.size[1] <= max_height)
 
-    # def test_resize_invalid_mode_size(self):
-    #     rv = self.app.get('/img/demo_project/test_image@small.jpg')
-    #     self.assertEqual(rv.status_code, 404)
-    #     rv = self.app.get('/img/demo_project/test_image@fit-small-unknown.jpg')
-    #     self.assertEqual(rv.status_code, 404)
-    #
-    # def test_resize_invalid_size(self):
-    #     rv = self.app.get('/img/demo_project/test_image@fit-invalid.jpg')
-    #     self.assertEqual(rv.status_code, 404)
-    #
-    # def test_resize_invalid_mode(self):
-    #     rv = self.app.get('/img/demo_project/test_image@invalid-small.jpg')
-    #     self.assertEqual(rv.status_code, 404)
+    def test_resize_invalid_mode_size(self):
+        rv = self.app.get('/img/demo_project/test_image@small.jpg')
+        self.assertEqual(rv.status_code, 404)
+        rv = self.app.get('/img/demo_project/test_image@fit-small-unknown.jpg')
+        self.assertEqual(rv.status_code, 404)
 
-    # def test_resize_mode_fit(self):
-    #     """
-    #         test image is 1600x1200 and small is 200, 200 so size should be 200x150
-    #     """
-    #     rv, im = self.download_image('/img/demo_project/test_image@fit-small.jpg')
-    #     self.assertEqual(rv.status_code, 200)
-    #     self.assertEqual(rv.mimetype, 'image/jpeg')
-    #     self.assertEqual(im.format, 'JPEG')
-    #     self.assertEqual(200, im.size[0])
-    #     self.assertEqual(150, im.size[0])
+    def test_resize_invalid_size(self):
+        rv = self.app.get('/img/demo_project/test_image@fit-invalid.jpg')
+        self.assertEqual(rv.status_code, 404)
+
+    def test_resize_invalid_mode(self):
+        rv = self.app.get('/img/demo_project/test_image@invalid-small.jpg')
+        self.assertEqual(rv.status_code, 404)
+
+    def test_resize_mode_fit(self):
+        """
+            test image is 1600x1200 and small is 200, 200 so size should be 200x150
+        """
+        rv, im = self.download_image('/img/demo_project/test_image@fit-small.jpg')
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.mimetype, 'image/jpeg')
+        self.assertEqual(im.format, 'JPEG')
+        self.assertEqual(200, im.size[0])
+        self.assertEqual(150, im.size[1])
+
+    def test_resize_mode_crop(self):
+        """
+            test image is 1600x1200 and small is 200, 200 so size should be 200x150
+        """
+        rv, im = self.download_image('/img/demo_project/test_image@crop-small.jpg')
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.mimetype, 'image/jpeg')
+        self.assertEqual(im.format, 'JPEG')
+        self.assertEqual(200, im.size[0])
+        self.assertEqual(200, im.size[1])
 
     def test_full_image(self):
         """download a resized image"""
@@ -376,6 +389,7 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.mimetype, 'image/jpeg')
         self.assertEqual(im.format, 'JPEG')
+
 
 class FSStorageTestCase(unittest.TestCase):
     """tests the filesystem storage and therefore defines the storage API
@@ -422,7 +436,7 @@ class FSStorageTestCase(unittest.TestCase):
         # save two new images in the storage
         self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im)
         self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im,
-                                size='imaginary_size')
+                                mode='imaginary_size')
         # now overwrite them with an image of another size
         new_width = 15
         new_height = 15
@@ -431,7 +445,7 @@ class FSStorageTestCase(unittest.TestCase):
         self.storage.save_image('demo_project', 'overwrite_test', 'jpg',
                                 resized_img)
         self.storage.save_image('demo_project', 'overwrite_test', 'jpg',
-                                resized_img, size='imaginary_size')
+                                resized_img, mode='imaginary_size')
         # check that the images have been overwritten
         im1 = Image.open(
             self.storage.get('demo_project', 'overwrite_test', 'jpg'))
