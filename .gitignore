@@ -2,14 +2,6 @@
 .idea/
 *.iml
 
-# test images
-demo_image_dir/resized/*/*.jpg
-demo_image_dir/images/demo_project/overwrite_test.jpg
-demo_image_dir/images/demo_project/upload.jpg
-demo_image_dir/images/demo_project/delete_api_test.jpg
-demo_image_dir/images/demo_project/existing-image.jpg
-demo_image_dir/images/demo_project/put_test.jpg
-
 # local temp documents
 doc/
 lib/

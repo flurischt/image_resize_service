@@ -1,6 +1,7 @@
 import os.path as op
-import io
 import tempfile
+import mimetypes
+import utils
 
 from functools import wraps
 from flask import Flask, render_template, send_file, request, url_for, Response
@@ -9,13 +10,21 @@ from PIL import Image
 from werkzeug.utils import secure_filename
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_restful_swagger import swagger
+from flask_cors import CORS
 
 app = Flask(__name__)
-config = op.join(app.root_path, 'production.cfg')
-app.config.from_pyfile(config)
+
+app.config.from_pyfile('default.cfg', silent=True)
+app.config.from_pyfile('production.cfg', silent=True)
 __storage = None
 api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
+cors = CORS(app, resources={r"/upload": {"origins": "*"}})
 
+
+@app.after_request
+def add_header(response):
+    response.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Cache-Control, Authorization'
+    return response
 
 def _storage():
     """returns access to the storage (save_image(), get() and exists())"""
@@ -68,24 +77,22 @@ def _resize_image(project, name, extension, size):
     im = im.resize(
         _calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
     _storage().save_image(project, name, extension, im, size)
-    # not cool, appengines PIL version needs a tempfile and flasks
-    # send_file has trouble with it.: tempfile -> BytesIO
-    ret_file = tempfile.TemporaryFile()
-    im.save(ret_file, 'JPEG')
-    ret_file.seek(0)
-    return io.BytesIO(ret_file.read())
+    return im
 
 
 def _serve_image(project, name, size, extension):
+    mime_type = mimetypes.types_map['.%s' % extension]
     if project not in app.config['PROJECTS'] \
             or (size and size not in app.config['PROJECTS'][project][
                 'dimensions']):
         raise NotFound()
+    #resize if not exist
     if not _storage().exists(project, name, extension, size):
-        resized_file = _resize_image(project, name, extension, size)
-        return send_file(resized_file, mimetype='image/jpeg')
-    return send_file(_storage().get(project, name, extension, size),
-                     mimetype='image/jpeg')
+        pil_image = _resize_image(project, name, extension, size)
+        image_file = _storage().save_image(project, name, extension, pil_image, size)
+    else:
+        image_file = _storage().get(project, name, extension, size)
+    return send_file(image_file, mimetype=mime_type, add_etags=False)
 
 
 def _check_auth(username, password, project):
@@ -96,6 +103,13 @@ def _check_auth(username, password, project):
         return False
     correct_user, correct_pass = app.config['PROJECTS'][project]['auth']
     return username == correct_user and password == correct_pass
+
+
+def _check_auth_token(origin, token, project):
+    if project not in app.config['PROJECTS']:
+        return False
+    correct_origin, correct_token = app.config['PROJECTS'][project]['auth_token']
+    return token == correct_token and origin == correct_origin
 
 
 def _authenticate():
@@ -111,11 +125,21 @@ def _authenticate():
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
         # temp workaround to make this decorator work with functions
         # and the restful class TODO: fix this
         project = kwargs['project'] if 'project' in kwargs else request.form[
             'project']
+
+        #check if it has auth token
+        auth_header = request.headers.get('Authorization')
+        origin = request.headers.get('Origin')
+        if auth_header is not None and origin is not None and auth_header.startswith('Token'):
+            #get the origin header
+            key, token = auth_header.split(" ")
+            if _check_auth_token(origin, token, project):
+                return f(*args, **kwargs)
+
+        auth = request.authorization
         if not auth or not _check_auth(auth.username, auth.password, project):
             return _authenticate()
         return f(*args, **kwargs)
@@ -194,18 +218,15 @@ def _save_to_storage(uploaded_file, project, name, extension):
     try:
         uploaded_file.seek(0)
         im = Image.open(uploaded_file)
-        jpg_image = tempfile.TemporaryFile()
-        im.save(jpg_image, 'JPEG')
-        jpg_image.seek(0)
-        _storage().save(project, name, extension, jpg_image.read())
+        _storage().save_image(project, name, extension, im)
         return _upload_json_response(True,
                                      url=url_for('serve_original_image',
                                                  project=project, name=name,
                                                  extension=extension))
     except IOError:
         return _upload_json_response(False,
-                                     message='your uploaded binary data does \
-                                     not represent a recognized image format.')
+                                     message='your uploaded binary data does '
+                                             'not represent a recognized image format.')
 
 
 class UploadAPI(Resource):
@@ -256,6 +277,7 @@ class UploadAPI(Resource):
             }
         ]
     )
+
     @marshal_with(UploadResponse.resource_fields)
     def post(self):
         args = self.reqparse.parse_args()

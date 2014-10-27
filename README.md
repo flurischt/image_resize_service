@@ -83,7 +83,6 @@ checkout /api/spec.html#!/spec.json for the full documentation
 
 TODO
 -----
- - currently image_resize_service will always output "image/jpeg" the file extension is just ignored...
  - add some info on how to run this app using a webserver
 
 License

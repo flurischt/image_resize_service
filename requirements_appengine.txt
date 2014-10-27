@@ -1,5 +1,6 @@
 Flask==0.10.1
 Flask-RESTful==0.2.12
+Flask-Cors==1.9.0
 Jinja2==2.7.3
 MarkupSafe==0.23
 # PIL/Pillow has been removed intentionally. app engine has its own version
