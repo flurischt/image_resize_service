@@ -56,10 +56,9 @@ def _crop_image(image, size):
 def _serve_image(project, name, extension, mode=None, size=None):
     mime_type = mimetypes.types_map['.%s' % extension]
     image_file = None
-    if not mode is None or not size is None:
-        if not mode in app.config['PROJECTS'][project]["mode"]:
-            raise NotFound()
-        if not size in app.config['PROJECTS'][project]["size"]:
+    if mode and size:
+        if not mode in app.config['PROJECTS'][project]["mode"] or \
+               not size in app.config['PROJECTS'][project]["size"]:
             raise NotFound()
         size_value = app.config['PROJECTS'][project]["size"][size]
         storage_mode = "%s-%s" % (mode, size)
