@@ -168,13 +168,9 @@ def serve_original_image(project, name, extension):
     return serve_image(project, name, extension)
 
 
-@app.route('/img/<project_name>/<name>@<mode>.<extension>', methods=['GET'])
-def serve_resized_image(project_name, name, mode, extension):
-    try:
-        resize_mode, size = mode.split('-')
-    except:
-        raise NotFound
-    return serve_image(project_name, name, extension, resize_mode, size)
+@app.route('/img/<project_name>/<name>@<mode>-<size>.<extension>', methods=['GET'])
+def serve_resized_image(project_name, name, mode, size, extension):
+    return serve_image(project_name, name, extension, mode, size)
 
 
 @app.route('/uploadform', methods=['GET'])
