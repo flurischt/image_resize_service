@@ -80,20 +80,6 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         self.assertTrue('<form' in rv.data)
 
-    def test_resized_image(self):
-        """just download an existing fullsize image"""
-        rv, im = self.download_image('/img/demo_project/test_image@small.jpg')
-        self.assertEqual(rv.status_code, 200)
-        self.assertEqual(rv.mimetype, 'image/jpeg')
-        self.assertEqual(im.format, 'JPEG')
-
-    def test_full_image(self):
-        """download a resized image"""
-        rv, im = self.download_image('/img/demo_project/test_image.jpg')
-        self.assertEqual(rv.status_code, 200)
-        self.assertEqual(rv.mimetype, 'image/jpeg')
-        self.assertEqual(im.format, 'JPEG')
-
     def test_wrong_method_resized_img(self):
         """resized image url only supports GET"""
         rv = self.app.post('/img/demo_project/test_image@small.jpg')
@@ -127,30 +113,16 @@ class APITestCase(unittest.TestCase):
         rv = self.app.get('/img/demo_project/test_image@fubar.jpg')
         self.assertEqual(rv.status_code, 404)  # not found
 
-    def test_correct_mimetype(self):
-        """make sure we get a jpeg image and it's dimension fits the config"""
-        for dimension_name, dimension in \
-                img_service.app.config['PROJECTS']['demo_project'][
-                    'dimensions'].items():
-            rv, im = self.download_image(
-                '/img/demo_project/test_image@' + dimension_name + '.jpg')
-            max_width, max_height = dimension
-            self.assertEqual(rv.status_code, 200)
-            self.assertEqual(rv.mimetype, 'image/jpeg')
-            self.assertEqual(im.format, 'JPEG')
-            self.assertTrue(
-                im.size[0] <= max_width and im.size[1] <= max_height)
-
     def test_upload_wrong_credentials(self):
         """try to upload to a valid project using wrong credentials"""
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
+        with open('test_images/jpg_image.jpg', 'r') as f:
             rv = self.upload_with_auth('fred', 'frickler', 'demo_project', f,
                                        'upload_test.jpg')
         self.assertEqual(rv.status_code, 401)  # Unauthorized
 
     def test_upload_wrong_project(self):
         """try to upload to an invalid project using valid credentials"""
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
+        with open('test_images/jpg_image.jpg', 'r') as f:
             rv = self.upload_with_correct_auth('blabla', f, 'upload_test.jpg')
         self.assertEqual(rv.status_code, 401)  # Unauthorized
 
@@ -173,7 +145,7 @@ class APITestCase(unittest.TestCase):
             { 'status' : 'ok', 'url' : 'url_to_the_image'}
         """
         # upload a valid image
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
+        with open('test_images/jpg_image.jpg', 'r') as f:
             rv = self.upload_with_correct_auth('demo_project', f, 'upload.jpg')
         json_response = json.loads(rv.data)
         # and download it
@@ -191,7 +163,7 @@ class APITestCase(unittest.TestCase):
             API must response with a json containing status='fail' and an
             error message 'message'. expected statuscode = 500
         """
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
+        with open('test_images/jpg_image.jpg', 'r') as f:
             rv = self.upload_with_correct_auth('demo_project', f, 'upload.exe')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
@@ -246,7 +218,7 @@ class APITestCase(unittest.TestCase):
         """
         modifying an image without authentication should not succeed
         """
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as f:
+        with open('test_images/jpg_image.jpg', 'r') as f:
             rv = self.app.put('/api/v1.0/images/demo_project/test_image.jpg',
                               content_type='multipart/form-data',
                               data={'file': (f, f.name)})
@@ -305,21 +277,21 @@ class APITestCase(unittest.TestCase):
 
     def test_upload_with_auth_token(self):
         rv = None
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as _file:
+        with open('test_images/jpg_image.jpg', 'r') as _file:
             rv = self.upload_with_auth_token("http://127.0.0.1:8000", "demo", 'demo_project', _file, "token_upload.jpg")
         self.assertEqual(rv.status_code, 201)
 
     def test_upload_with_invalid_auth_token(self):
         project = 'demo_project'
         rv = None
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as _file:
+        with open('test_images/jpg_image.jpg', 'r') as _file:
             rv = self.upload_with_auth_token("http://127.0.0.1:8000", "invalid", 'demo_project', _file, "invalid_upload.jpg")
         self.assertEqual(rv.status_code, 401)
 
     def test_upload_with_invalid_origin(self):
         project = 'demo_project'
         rv = None
-        with open('demo_image_dir/images/demo_project/test_image.jpg', 'r') as _file:
+        with open('test_images/jpg_image.jpg', 'r') as _file:
             rv = self.upload_with_auth_token("http://some_page.com", "demo", 'demo_project', _file, "invalid_upload.jpg")
         self.assertEqual(rv.status_code, 401)
 
@@ -359,6 +331,52 @@ class APITestCase(unittest.TestCase):
         return rv, im
 
 
+    def test_correct_mimetype(self):
+        """make sure we get a jpeg image and it's dimension fits the config"""
+        for dimension_name, dimension in \
+                img_service.app.config['PROJECTS']['demo_project'][
+                    'size'].items():
+            rv, im = self.download_image(
+                '/img/demo_project/test_image@' + dimension_name + '.jpg')
+            max_width, max_height = dimension
+            self.assertEqual(rv.status_code, 200)
+            self.assertEqual(rv.mimetype, 'image/jpeg')
+            self.assertEqual(im.format, 'JPEG')
+            self.assertTrue(
+                im.size[0] <= max_width and im.size[1] <= max_height)
+
+    # def test_resize_invalid_mode_size(self):
+    #     rv = self.app.get('/img/demo_project/test_image@small.jpg')
+    #     self.assertEqual(rv.status_code, 404)
+    #     rv = self.app.get('/img/demo_project/test_image@fit-small-unknown.jpg')
+    #     self.assertEqual(rv.status_code, 404)
+    #
+    # def test_resize_invalid_size(self):
+    #     rv = self.app.get('/img/demo_project/test_image@fit-invalid.jpg')
+    #     self.assertEqual(rv.status_code, 404)
+    #
+    # def test_resize_invalid_mode(self):
+    #     rv = self.app.get('/img/demo_project/test_image@invalid-small.jpg')
+    #     self.assertEqual(rv.status_code, 404)
+
+    # def test_resize_mode_fit(self):
+    #     """
+    #         test image is 1600x1200 and small is 200, 200 so size should be 200x150
+    #     """
+    #     rv, im = self.download_image('/img/demo_project/test_image@fit-small.jpg')
+    #     self.assertEqual(rv.status_code, 200)
+    #     self.assertEqual(rv.mimetype, 'image/jpeg')
+    #     self.assertEqual(im.format, 'JPEG')
+    #     self.assertEqual(200, im.size[0])
+    #     self.assertEqual(150, im.size[0])
+
+    def test_full_image(self):
+        """download a resized image"""
+        rv, im = self.download_image('/img/demo_project/test_image.jpg')
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.mimetype, 'image/jpeg')
+        self.assertEqual(im.format, 'JPEG')
+
 class FSStorageTestCase(unittest.TestCase):
     """tests the filesystem storage and therefore defines the storage API
        all storages must have the same behaviour as it's tested here.
@@ -367,8 +385,7 @@ class FSStorageTestCase(unittest.TestCase):
 
     def setUp(self):
         self.storage = FileImageStorage(
-            img_service.app.config['FILESYSTEM_STORAGE_SOURCE_DIR'],
-            img_service.app.config['FILESYSTEM_STORAGE_RESIZED_DIR'])
+            img_service.app.config['FILESYSTEM_STORAGE_DIR'])
         self.project = 'demo_project'
 
     def tearDown(self):

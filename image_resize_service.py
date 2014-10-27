@@ -19,6 +19,9 @@ app.config.from_pyfile('production.cfg', silent=True)
 __storage = None
 api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
 cors = CORS(app, resources={r"/upload": {"origins": "*"}})
+import os
+
+
 
 
 @app.after_request
@@ -34,8 +37,7 @@ def _storage():
             from storage.filesystem import FileImageStorage
 
             __storage = FileImageStorage(
-                app.config['FILESYSTEM_STORAGE_SOURCE_DIR'],
-                app.config['FILESYSTEM_STORAGE_RESIZED_DIR'])
+                app.config['FILESYSTEM_STORAGE_DIR'])
         elif app.config['STORAGE'] == 'APPENGINE':
             from storage.appengine_datastore import DatastoreImageStorage
 
@@ -75,7 +77,7 @@ def _resize_image(project, name, extension, size):
         raise NotFound()
     im = Image.open(_storage().get(project, name, extension))
     im = im.resize(
-        _calc_size(app.config['PROJECTS'][project]['dimensions'][size], im))
+        _calc_size(app.config['PROJECTS'][project]['size'][size], im))
     _storage().save_image(project, name, extension, im, size)
     return im
 
@@ -84,7 +86,7 @@ def _serve_image(project, name, size, extension):
     mime_type = mimetypes.types_map['.%s' % extension]
     if project not in app.config['PROJECTS'] \
             or (size and size not in app.config['PROJECTS'][project][
-                'dimensions']):
+                'size']):
         raise NotFound()
     #resize if not exist
     if not _storage().exists(project, name, extension, size):
@@ -120,6 +122,18 @@ def _authenticate():
 
         401,
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+
+"""
+    setup demo project, create all directories if FILESYSTEM is used as storage...
+"""
+storage = _storage()
+for project in app.config['PROJECTS']:
+    if "demo_project" == project:
+        _storage().project_dir(project)
+        if not os.path.isfile(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg'):
+            with open(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg', 'r') as f:
+                storage.save(project, "welcome", "jpg", f.read())
 
 
 def requires_auth(f):

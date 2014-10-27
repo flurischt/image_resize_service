@@ -10,9 +10,23 @@ from storage import ImageStorage
 
 class FileImageStorage(ImageStorage):
 
-    def __init__(self, SOURCE_DIR, RESIZED_DIR):
-        self.SOURCE_DIR = SOURCE_DIR
-        self.RESIZED_DIR = RESIZED_DIR
+    def __init__(self, image_dir):
+        self._image_dir = image_dir
+        #check if folder exists
+        if not os.path.isdir(self._image_dir):
+            os.makedirs(self._image_dir)
+
+    def resize_dir(self, project):
+        resize_dir = os.path.join(self._image_dir, project, "_resized")
+        if not os.path.isdir(resize_dir):
+            os.makedirs(resize_dir)
+        return resize_dir
+
+    def project_dir(self, project):
+        project_dir = os.path.join(self._image_dir, project)
+        if not os.path.isdir(project_dir):
+            os.makedirs(project_dir)
+        return project_dir
 
     def exists(self, project, name, extension, size=None):
         return op.isfile(self._path_to_image(project, name, extension, size))
@@ -50,9 +64,8 @@ class FileImageStorage(ImageStorage):
         """
         if size:
             filename = secure_filename('%s_%s.%s' % (name, size, extension))
-            directory = self.RESIZED_DIR
+            directory = self.resize_dir(project)
         else:
             filename = secure_filename(name + '.' + extension)
-            directory = self.SOURCE_DIR
-        directory = directory + project
+            directory = self.project_dir(project)
         return safe_join(directory, filename)
