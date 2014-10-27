@@ -11,6 +11,6 @@ script:
 # run api and storage tests using storage=filesystem
  - RUNNING_ON_TRAVIS_CI=1 python ./test_image_resize_service.py
 # enable the datastore storage and run the test again
- - sed -e "s/\'FILESYSTEM\'/\'APPENGINE\'/" production.cfg > prod_appengine.cfg && mv prod_appengine.cfg production.cfg
+ - sed -e "s/\'FILESYSTEM\'/\'APPENGINE\'/" default.cfg > prod_appengine.cfg && mv prod_appengine.cfg production.cfg
  - RUNNING_ON_TRAVIS_CI=1 python ./test_image_resize_service.py
 
