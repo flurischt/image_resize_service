@@ -1,6 +1,8 @@
 import tempfile
 from abc import abstractmethod
+
 import utils
+
 
 class ImageStorage(object):
     """represents an image storage"""

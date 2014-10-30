@@ -1,12 +1,10 @@
 import base64
-
 import json
 import random
 import unittest
 import io
 import sys
 import os
-import tempfile
 
 from PIL import Image
 from werkzeug.exceptions import NotFound
@@ -336,9 +334,7 @@ class APITestCase(unittest.TestCase):
         for size_name, size in \
                 img_service.app.config['PROJECTS']['demo_project'][
                     'size'].items():
-            for mode in \
-                img_service.app.config['PROJECTS']['demo_project'][
-                    'mode']:
+            for mode in ("fit", "crop"):
                 rv, im = self.download_image(
                     '/img/demo_project/test_image@%s-%s.jpg' % (mode, size_name))
                 max_width, max_height = size

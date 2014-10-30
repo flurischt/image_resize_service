@@ -1,9 +1,8 @@
-import os.path as op
-import tempfile
 import mimetypes
-import utils
-
+import sys
 from functools import wraps
+import os
+
 from flask import Flask, render_template, send_file, request, url_for, Response
 from werkzeug.exceptions import NotFound
 from PIL import Image, ImageOps
@@ -11,7 +10,7 @@ from werkzeug.utils import secure_filename
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_restful_swagger import swagger
 from flask_cors import CORS
-import os
+
 
 app = Flask(__name__)
 
@@ -53,33 +52,32 @@ def _crop_image(image, size):
     return im
 
 
-def _serve_image(project, name, extension, mode=None, size=None):
-    mime_type = mimetypes.types_map['.%s' % extension]
-    image_file = None
-    if mode and size:
-        if not mode in app.config['PROJECTS'][project]["mode"] or \
-               not size in app.config['PROJECTS'][project]["size"]:
-            raise NotFound()
-        size_value = app.config['PROJECTS'][project]["size"][size]
-        storage_mode = "%s-%s" % (mode, size)
-        if not _storage().exists(project, name, extension, storage_mode):
-            #check if original file exists
-            if not _storage().exists(project, name, extension):
-                raise NotFound()
-            original_image = Image.open(_storage().get(project, name, extension))
-            #resize if not exist
-            if mode == "fit":
-                pil_image = _fit_image(original_image, size_value)
-            if mode == "crop":
-                pil_image = _crop_image(original_image, size_value)
-            image_file = _storage().save_image(project, name, extension, pil_image, storage_mode)
-        else:
-            image_file = _storage().get(project, name, extension, storage_mode)
-        image_file.seek(0)
+def _manipulated_image(project, name, extension, mode, size):
+    if not size in app.config['PROJECTS'][project]["size"]:
+        raise NotFound()
+    storage_mode = "%s-%s" % (mode, size)
+
+    if _storage().exists(project, name, extension, storage_mode):
+        image = _storage().get(project, name, extension, storage_mode)
     else:
-        image_file = _storage().get(project, name, extension)
+        image = _original_image(project, name, extension)
+
+        size_value = app.config['PROJECTS'][project]["size"][size]
+        module = sys.modules(__name__)
+        func = getattr(module, '_'+mode+'_image')
+        manipulated_image = func(image, size_value)
+        manipulated_image.seek(0)
+    return _serve_image(image, extension)
 
 
+def _original_image(project, name, extension):
+    if not _storage().exists(project, name, extension):
+        raise NotFound()
+    return _storage().get(project, name, extension)
+
+
+def _serve_image(image_file, extension):
+    mime_type = mimetypes.types_map['.%s' % extension]
     return send_file(image_file, mimetype=mime_type, add_etags=False)
 
 
@@ -165,12 +163,18 @@ def index():
 
 @app.route('/img/<project>/<name>.<extension>', methods=['GET'])
 def serve_original_image(project, name, extension):
-    return serve_image(project, name, extension)
+    image = _original_image(project, name, extension)
+    return _serve_image(image, extension)
 
 
-@app.route('/img/<project_name>/<name>@<mode>-<size>.<extension>', methods=['GET'])
-def serve_resized_image(project_name, name, mode, size, extension):
-    return serve_image(project_name, name, extension, mode, size)
+@app.route('/img/<project>/<name>@fit-<size>.<extension>', methods=['GET'])
+def serve_fitted_image(project, name, size, extension):
+    return _manipulated_image(project, name, extension, "fit", size)
+
+@app.route('/img/<project>/<name>@crop-<size>.<extension>', methods=['GET'])
+def serve_cropped_image(project, name, size, extension):
+    return _manipulated_image(project, name, extension, "crop", size)
+
 
 
 @app.route('/uploadform', methods=['GET'])
