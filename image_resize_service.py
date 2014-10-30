@@ -26,6 +26,7 @@ def add_header(response):
     response.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Cache-Control, Authorization'
     return response
 
+
 def _storage():
     """returns access to the storage (save_image(), get() and exists())"""
     global __storage
@@ -60,13 +61,18 @@ def _manipulated_image(project, name, extension, mode, size):
     if _storage().exists(project, name, extension, storage_mode):
         image = _storage().get(project, name, extension, storage_mode)
     else:
-        image = _original_image(project, name, extension)
+        original_image = Image.open(_original_image(project, name, extension))
+
 
         size_value = app.config['PROJECTS'][project]["size"][size]
-        module = sys.modules(__name__)
-        func = getattr(module, '_'+mode+'_image')
-        manipulated_image = func(image, size_value)
-        manipulated_image.seek(0)
+        #module = sys.modules(__name__)
+        #func = getattr(module, '_'+mode+'_image')
+        #manipulated_image = func(image, size_value)
+        if mode == "fit":
+            manipulated_image = _fit_image(original_image, size_value)
+        else:
+            manipulated_image = _crop_image(original_image, size_value)
+        image = _storage().save_image(project, name, extension, manipulated_image, storage_mode)
     return _serve_image(image, extension)
 
 
