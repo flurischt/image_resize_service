@@ -72,9 +72,6 @@ GET /img/PROJECTNAME/image_name_without_extension@crop-<size>.extension
 
 uploading images
 ---
-
-uploading images
----
 POST /upload
 project=THE_NAME_OF_THE_PROJECT
 file=your image
