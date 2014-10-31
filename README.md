@@ -62,9 +62,13 @@ DO NOT install Pillow into lib/. use virtualenv for development or install it gl
 
 API
 -----
-resizing images
+fitting images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@dimension.extension
+GET /img/PROJECTNAME/image_name_without_extension@fit-<size>.extension
+-----
+cropping images
+---
+GET /img/PROJECTNAME/image_name_without_extension@crop-<size>.extension
 
 uploading images
 ---
@@ -85,8 +89,14 @@ TODO
 -----
  - add some info on how to run this app using a webserver
 
+Copyright
+-------
+- demo image taken from http://www.reddit.com/r/EarthPorn/comments/20vygp/the_eiger_switzerland_1600x1200/
+
 License
 -------
 BSD 2-Clause, see the LICENSE file
+
+
 
 Copyright 2014 Flurin Rindisbacher

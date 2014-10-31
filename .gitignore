@@ -7,3 +7,6 @@ doc/
 lib/
 
 *.pyc
+
+#demo images folder
+images/
