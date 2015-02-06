@@ -202,6 +202,10 @@ class DeleteResponse:
     }
 
 
+def _delete_manipulated_images():
+    pass
+
+
 def _save_to_storage(uploaded_file, project, name, extension):
     if not extension.lower() in app.config['ALLOWED_EXTENSIONS']:
         return _upload_json_response(False,

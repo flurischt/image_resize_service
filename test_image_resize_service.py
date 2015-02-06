@@ -43,6 +43,12 @@ def _add_test_image_to_storage(storage, project, name, extension):
         storage.save(project, name, extension, f.read())
 
 
+def _create_test_thumb_with_image(storage, project, name, extension):
+    """adds the welcome image to a storage. used for testing empty storages"""
+    with open('test_images/%s_image.%s' % (extension, extension), 'r') as f:
+        storage.save(project, name, extension, f.read())
+
+
 class APITestCase(unittest.TestCase):
     """tests the HTTP API using the configured storage
        make sure to configure STORAGE=APP_ENGINE if you run the code in the
@@ -52,6 +58,18 @@ class APITestCase(unittest.TestCase):
 
     def setUp(self):
         img_service.app.config['TESTING'] = True
+        img_service.app.config['PROJECTS'] = {
+            'test_project': {  # projectname
+                               'auth': ('test', 'test'),  # upload_username, upload_password CHANGE THIS
+                               'size': {
+                                   'small': (200, 200),  # size-name  and (max_width, max_height)
+                                   'medium': (500, 500),
+                                   'large': (800, 800),
+                                   'fullsize': (1200, 1200)
+                               },
+                               'auth_token': ('http://127.0.0.1:8000', 'test')
+            }
+        }
         self.app = img_service.app.test_client()
         if APP_ENGINE_AVAILABLE:
             # storage=appengine needs this
@@ -59,8 +77,8 @@ class APITestCase(unittest.TestCase):
             self.testbed.activate()
             self.testbed.init_datastore_v3_stub()
         self.username, self.password = \
-            img_service.app.config['PROJECTS']['demo_project']['auth']
-        _add_test_image_to_storage(img_service._storage(), 'demo_project',
+            img_service.app.config['PROJECTS']['test_project']['auth']
+        _add_test_image_to_storage(img_service._storage(), 'test_project',
                                    'test_image', 'jpg')
 
     def tearDown(self):
@@ -80,12 +98,12 @@ class APITestCase(unittest.TestCase):
 
     def test_wrong_method_resized_img(self):
         """resized image url only supports GET"""
-        rv = self.app.post('/img/demo_project/test_image@small.jpg')
+        rv = self.app.post('/img/test_project/test_image@small.jpg')
         self.assertEqual(rv.status_code, 405)  # method not allowed
 
     def test_wrong_method_img(self):
         """the full image url only supports GET"""
-        rv = self.app.post('/img/demo_project/test_image.jpg')
+        rv = self.app.post('/img/test_project/test_image.jpg')
         self.assertEqual(rv.status_code, 405)
 
     def test_wrong_method_upload(self):
@@ -108,13 +126,13 @@ class APITestCase(unittest.TestCase):
 
     def test_invalid_size(self):
         """unsupported dimensions return a 404 error"""
-        rv = self.app.get('/img/demo_project/test_image@fubar.jpg')
+        rv = self.app.get('/img/test_project/test_image@fubar.jpg')
         self.assertEqual(rv.status_code, 404)  # not found
 
     def test_upload_wrong_credentials(self):
         """try to upload to a valid project using wrong credentials"""
         with open('test_images/jpg_image.jpg', 'r') as f:
-            rv = self.upload_with_auth('fred', 'frickler', 'demo_project', f,
+            rv = self.upload_with_auth('fred', 'frickler', 'test_project', f,
                                        'upload_test.jpg')
         self.assertEqual(rv.status_code, 401)  # Unauthorized
 
@@ -144,10 +162,10 @@ class APITestCase(unittest.TestCase):
         """
         # upload a valid image
         with open('test_images/jpg_image.jpg', 'r') as f:
-            rv = self.upload_with_correct_auth('demo_project', f, 'upload.jpg')
+            rv = self.upload_with_correct_auth('test_project', f, 'upload.jpg')
         json_response = json.loads(rv.data)
         # and download it
-        url_to_image = '/img/demo_project/upload.jpg'
+        url_to_image = '/img/test_project/upload.jpg'
         rv2, im = self.download_image(url_to_image)
         self.assertEqual(rv.status_code, 201)
         self.assertEqual(rv2.status_code, 200)
@@ -162,7 +180,7 @@ class APITestCase(unittest.TestCase):
             error message 'message'. expected statuscode = 500
         """
         with open('test_images/jpg_image.jpg', 'r') as f:
-            rv = self.upload_with_correct_auth('demo_project', f, 'upload.exe')
+            rv = self.upload_with_correct_auth('test_project', f, 'upload.exe')
         json_response = json.loads(rv.data)
         self.assertEqual(rv.status_code, 500)
         self.check_valid_json_response(json_response,
@@ -174,7 +192,7 @@ class APITestCase(unittest.TestCase):
             no image. API must response with a json containing status='fail'
             and an error message 'message'. expected statuscode = 500
         """
-        rv = self.upload_with_correct_auth('demo_project',
+        rv = self.upload_with_correct_auth('test_project',
                                            io.BytesIO(r'theAnswerIs42'),
                                            'upload.jpg')
         json_response = json.loads(rv.data)
@@ -188,10 +206,10 @@ class APITestCase(unittest.TestCase):
         the api should respond with status_code=200, status=ok, message=...
         when successfully deleted an image
         """
-        _add_test_image_to_storage(img_service._storage(), 'demo_project',
+        _add_test_image_to_storage(img_service._storage(), 'test_project',
                                    'delete_api_test', 'jpg')
         rv = self.app.delete(
-            '/api/v1.0/images/demo_project/delete_api_test.jpg',
+            '/api/v1.0/images/test_project/delete_api_test.jpg',
             headers={
                 'Authorization': 'Basic '
                                  + base64.b64encode(self.username +
@@ -207,8 +225,8 @@ class APITestCase(unittest.TestCase):
         deleting an image without proper authentication should not succeed and
         the image must still be available
         """
-        rv = self.app.delete('/api/v1.0/images/demo_project/test_image.jpg')
-        rv2 = self.app.get('/img/demo_project/test_image.jpg')
+        rv = self.app.delete('/api/v1.0/images/test_project/test_image.jpg')
+        rv2 = self.app.get('/img/test_project/test_image.jpg')
         self.assertEqual(rv.status_code, 401)
         self.assertEqual(rv2.status_code, 200)
 
@@ -217,7 +235,7 @@ class APITestCase(unittest.TestCase):
         modifying an image without authentication should not succeed
         """
         with open('test_images/jpg_image.jpg', 'r') as f:
-            rv = self.app.put('/api/v1.0/images/demo_project/test_image.jpg',
+            rv = self.app.put('/api/v1.0/images/test_project/test_image.jpg',
                               content_type='multipart/form-data',
                               data={'file': (f, f.name)})
             self.assertEqual(rv.status_code, 401)
@@ -230,9 +248,9 @@ class APITestCase(unittest.TestCase):
             - put image and check that it exists
             - put resized image and check that it has been overwritten
         """
-        url_to_test_image = '/img/demo_project/put_test.jpg'
+        url_to_test_image = '/img/test_project/put_test.jpg'
         with open('test_images/jpg_image.jpg', 'r') as f:
-            rv = self.app.put('/api/v1.0/images/demo_project/put_test.jpg',
+            rv = self.app.put('/api/v1.0/images/test_project/put_test.jpg',
                               headers={
                                   'Authorization': 'Basic ' + base64.b64encode(
                                       self.username +
@@ -254,7 +272,7 @@ class APITestCase(unittest.TestCase):
             resized_img.save(tmp, 'JPEG')
             tmp.seek(0)
             # now overwrite
-            rv = self.app.put('/api/v1.0/images/demo_project/put_test.jpg',
+            rv = self.app.put('/api/v1.0/images/test_project/put_test.jpg',
                               headers={
                                   'Authorization': 'Basic ' + base64.b64encode(
                                       self.username +
@@ -276,21 +294,23 @@ class APITestCase(unittest.TestCase):
     def test_upload_with_auth_token(self):
         rv = None
         with open('test_images/jpg_image.jpg', 'r') as _file:
-            rv = self.upload_with_auth_token("http://127.0.0.1:8000", "demo", 'demo_project', _file, "token_upload.jpg")
+            rv = self.upload_with_auth_token("http://127.0.0.1:8000", "test", 'test_project', _file, "token_upload.jpg")
         self.assertEqual(rv.status_code, 201)
 
     def test_upload_with_invalid_auth_token(self):
-        project = 'demo_project'
+        project = 'test_project'
         rv = None
         with open('test_images/jpg_image.jpg', 'r') as _file:
-            rv = self.upload_with_auth_token("http://127.0.0.1:8000", "invalid", 'demo_project', _file, "invalid_upload.jpg")
+            rv = self.upload_with_auth_token("http://127.0.0.1:8000", "invalid", 'test_project', _file,
+                                             "invalid_upload.jpg")
         self.assertEqual(rv.status_code, 401)
 
     def test_upload_with_invalid_origin(self):
-        project = 'demo_project'
+        project = 'test_project'
         rv = None
         with open('test_images/jpg_image.jpg', 'r') as _file:
-            rv = self.upload_with_auth_token("http://some_page.com", "demo", 'demo_project', _file, "invalid_upload.jpg")
+            rv = self.upload_with_auth_token("http://some_page.com", "demo", 'test_project', _file,
+                                             "invalid_upload.jpg")
         self.assertEqual(rv.status_code, 401)
 
     def upload_with_auth_token(self, origin, token, project, _file, filename):
@@ -302,8 +322,6 @@ class APITestCase(unittest.TestCase):
                              },
                              data={'project': project,
                                    'file': (_file, filename)})
-
-
 
     def upload_with_auth(self, username, password, project, _file, filename):
         """try uploading the given file using http basic login"""
@@ -328,15 +346,14 @@ class APITestCase(unittest.TestCase):
         im = Image.open(io.BytesIO(rv.data))
         return rv, im
 
-
     def test_correct_mimetype(self):
         """make sure we get a jpeg image and it's dimension fits the config"""
         for size_name, size in \
-                img_service.app.config['PROJECTS']['demo_project'][
+                img_service.app.config['PROJECTS']['test_project'][
                     'size'].items():
             for mode in ("fit", "crop"):
                 rv, im = self.download_image(
-                    '/img/demo_project/test_image@%s-%s.jpg' % (mode, size_name))
+                    '/img/test_project/test_image@%s-%s.jpg' % (mode, size_name))
                 max_width, max_height = size
                 self.assertEqual(rv.status_code, 200)
                 self.assertEqual(rv.mimetype, 'image/jpeg')
@@ -344,24 +361,24 @@ class APITestCase(unittest.TestCase):
                 self.assertTrue(im.size[0] <= max_width and im.size[1] <= max_height)
 
     def test_resize_invalid_mode_size(self):
-        rv = self.app.get('/img/demo_project/test_image@small.jpg')
+        rv = self.app.get('/img/test_project/test_image@small.jpg')
         self.assertEqual(rv.status_code, 404)
-        rv = self.app.get('/img/demo_project/test_image@fit-small-unknown.jpg')
+        rv = self.app.get('/img/test_project/test_image@fit-small-unknown.jpg')
         self.assertEqual(rv.status_code, 404)
 
     def test_resize_invalid_size(self):
-        rv = self.app.get('/img/demo_project/test_image@fit-invalid.jpg')
+        rv = self.app.get('/img/test_project/test_image@fit-invalid.jpg')
         self.assertEqual(rv.status_code, 404)
 
     def test_resize_invalid_mode(self):
-        rv = self.app.get('/img/demo_project/test_image@invalid-small.jpg')
+        rv = self.app.get('/img/test_project/test_image@invalid-small.jpg')
         self.assertEqual(rv.status_code, 404)
 
     def test_resize_mode_fit(self):
         """
             test image is 1600x1200 and small is 200, 200 so size should be 200x150
         """
-        rv, im = self.download_image('/img/demo_project/test_image@fit-small.jpg')
+        rv, im = self.download_image('/img/test_project/test_image@fit-small.jpg')
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.mimetype, 'image/jpeg')
         self.assertEqual(im.format, 'JPEG')
@@ -372,7 +389,7 @@ class APITestCase(unittest.TestCase):
         """
             test image is 1600x1200 and small is 200, 200 so size should be 200x150
         """
-        rv, im = self.download_image('/img/demo_project/test_image@crop-small.jpg')
+        rv, im = self.download_image('/img/test_project/test_image@crop-small.jpg')
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.mimetype, 'image/jpeg')
         self.assertEqual(im.format, 'JPEG')
@@ -381,7 +398,7 @@ class APITestCase(unittest.TestCase):
 
     def test_full_image(self):
         """download a resized image"""
-        rv, im = self.download_image('/img/demo_project/test_image.jpg')
+        rv, im = self.download_image('/img/test_project/test_image.jpg')
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.mimetype, 'image/jpeg')
         self.assertEqual(im.format, 'JPEG')
@@ -396,23 +413,23 @@ class FSStorageTestCase(unittest.TestCase):
     def setUp(self):
         self.storage = FileImageStorage(
             img_service.app.config['FILESYSTEM_STORAGE_DIR'])
-        self.project = 'demo_project'
+        self.project = 'test_project'
 
     def tearDown(self):
         pass
 
     def test_available_image_exists(self):
         _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
-        self.assertTrue(self.storage.exists('demo_project', 'test_image', 'jpg'))
+        self.assertTrue(self.storage.exists('test_project', 'test_image', 'jpg'))
 
     def test_unavailable_image_exists_not(self):
         """storage.exists() should return false for unavailable images"""
-        self.assertFalse(self.storage.exists('demo_project', 'not_existing', 'png'))
+        self.assertFalse(self.storage.exists('test_project', 'not_existing', 'png'))
 
     def test_get_existing_image(self):
         """get must return images of type JPEG with a valid dimension"""
         _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
-        im = Image.open(self.storage.get('demo_project', 'test_image', 'jpg'))
+        im = Image.open(self.storage.get('test_project', 'test_image', 'jpg'))
         self.assertTrue(
             im.size[0] > 0 and im.size[1] > 0)  # image has any valid size
         self.assertEqual(im.format, 'JPEG')
@@ -420,7 +437,7 @@ class FSStorageTestCase(unittest.TestCase):
     def test_get_missing_image(self):
         """calling get on an unavailable image should yield a 404 error"""
         with self.assertRaises(NotFound):
-            self.storage.get('demo_project', 'blabla', 'png')
+            self.storage.get('test_project', 'blabla', 'png')
 
     def test_overwrite(self):
         """calling save() on an image identified by (project, name, extension
@@ -428,25 +445,26 @@ class FSStorageTestCase(unittest.TestCase):
             must overwrite the image
         """
         _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
-        im = Image.open(self.storage.get('demo_project', 'test_image', 'jpg'))
+        im = Image.open(self.storage.get('test_project', 'test_image', 'jpg'))
         # save two new images in the storage
-        self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im)
-        self.storage.save_image('demo_project', 'overwrite_test', 'jpg', im,
+        self.storage.save_image('test_project', 'overwrite_test', 'jpg', im)
+        self.storage.save_image('test_project', 'overwrite_test', 'jpg', im,
                                 mode='imaginary_size')
         # now overwrite them with an image of another size
         new_width = 15
         new_height = 15
         resized_img = im.resize((new_width, new_height))
         self.assertEqual((new_width, new_height), resized_img.size)
-        self.storage.save_image('demo_project', 'overwrite_test', 'jpg',
+        self.storage.save_image('test_project', 'overwrite_test', 'jpg',
                                 resized_img)
-        self.storage.save_image('demo_project', 'overwrite_test', 'jpg',
+        self.storage.save_image('test_project', 'overwrite_test', 'jpg',
                                 resized_img, mode='imaginary_size')
+
         # check that the images have been overwritten
         im1 = Image.open(
-            self.storage.get('demo_project', 'overwrite_test', 'jpg'))
+            self.storage.get('test_project', 'overwrite_test', 'jpg'))
         im2 = Image.open(
-            self.storage.get('demo_project', 'overwrite_test', 'jpg',
+            self.storage.get('test_project', 'overwrite_test', 'jpg',
                              'imaginary_size'))
         self.assertEqual((new_width, new_height), im1.size)
         self.assertEqual((new_width, new_height), im2.size)
@@ -456,22 +474,22 @@ class FSStorageTestCase(unittest.TestCase):
             it must be available in the storage
         """
         _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
-        fd = self.storage.get('demo_project', 'test_image', 'jpg')
+        fd = self.storage.get('test_project', 'test_image', 'jpg')
         im = Image.open(fd)
         resized_img = im.resize((20, 30))
         # invent a random size to make sure it does not yet exist in storage
         size = 'xtrasmall'
         random.seed()
-        while self.storage.exists('demo_project', 'test_image', 'jpg', size):
+        while self.storage.exists('test_project', 'test_image', 'jpg', size):
             size += str(random.randint(0, 10))
         self.assertFalse(
-            self.storage.exists('demo_project', 'test_image', 'jpg', size))
-        self.storage.save_image('demo_project', 'test_image', 'jpg', resized_img,
+            self.storage.exists('test_project', 'test_image', 'jpg', size))
+        self.storage.save_image('test_project', 'test_image', 'jpg', resized_img,
                                 size)
         self.assertTrue(
-            self.storage.exists('demo_project', 'test_image', 'jpg', size))
+            self.storage.exists('test_project', 'test_image', 'jpg', size))
         im_from_storage = Image.open(
-            self.storage.get('demo_project', 'test_image', 'jpg', size))
+            self.storage.get('test_project', 'test_image', 'jpg', size))
         # storage must return a JPEG image with the chosen size
         self.assertEqual(im_from_storage.size, resized_img.size)
         self.assertEqual(im_from_storage.format, 'JPEG')
@@ -483,7 +501,7 @@ class FSStorageTestCase(unittest.TestCase):
             implementations in FS and Datastore Testcases)
         """
         _add_test_image_to_storage(self.storage, self.project, 'test_image', 'jpg')
-        fd = self.storage.get('demo_project', 'test_image', 'jpg')
+        fd = self.storage.get('test_project', 'test_image', 'jpg')
         with self.assertRaises(IOError):
             fd.seek(0)
             fd.write(b'asdf')
@@ -493,8 +511,8 @@ class FSStorageTestCase(unittest.TestCase):
         deleting a non-existing image should not succeed
         """
         non_existing_image = 'non_existing_name'
-        exists = self.storage.exists('demo_project', non_existing_image, 'jpg')
-        delete_succeeded = self.storage.delete('demo_project',
+        exists = self.storage.exists('test_project', non_existing_image, 'jpg')
+        delete_succeeded = self.storage.delete('test_project',
                                                non_existing_image, 'jpg')
         self.assertFalse(exists)  # just to be sure
         self.assertFalse(delete_succeeded)
@@ -503,7 +521,7 @@ class FSStorageTestCase(unittest.TestCase):
         """
         tries to delete an existing image
         """
-        prj, name, extension = 'demo_project', 'existing-image', 'jpg'
+        prj, name, extension = 'test_project', 'existing-image', 'jpg'
         _add_test_image_to_storage(self.storage, prj, name, extension)
         self.assertTrue(self.storage.exists(prj, name, extension))
         delete_succeeded = self.storage.delete(prj, name, extension)
@@ -530,7 +548,7 @@ if APP_ENGINE_AVAILABLE:
             self.testbed.init_datastore_v3_stub()
 
             self.storage = DatastoreImageStorage()
-            _add_test_image_to_storage(self.storage, 'demo_project', 'welcome',
+            _add_test_image_to_storage(self.storage, 'test_project', 'welcome',
                                        'jpg')
 
         def tearDown(self):
@@ -543,14 +561,14 @@ if APP_ENGINE_AVAILABLE:
                 in the datastore
             """
             # overwrite the fd with a resized image
-            fd = self.storage.get('demo_project', 'welcome', 'jpg')
+            fd = self.storage.get('test_project', 'welcome', 'jpg')
             im = Image.open(fd)
             new_im = im.resize((im.size[0] + 1, im.size[0] + 1))
             fd.seek(0)
             new_im.save(fd, 'JPEG')
             fd.close()
             # load the image again and compare
-            fd = self.storage.get('demo_project', 'welcome', 'jpg')
+            fd = self.storage.get('test_project', 'welcome', 'jpg')
             im = Image.open(fd)
             self.assertNotEqual(im.size, new_im.size)
 
