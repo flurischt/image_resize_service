@@ -1,20 +1,20 @@
 import mimetypes
 from functools import wraps
-import os
 
 from flask import Flask, render_template, send_file, request, url_for, Response
-from werkzeug.exceptions import NotFound
 from PIL import Image, ImageOps
-from werkzeug.utils import secure_filename
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_restful_swagger import swagger
 from flask_cors import CORS
 
+from storage import *
+
+CONFIG_STORAGE_DIR = "STORAGE_DIRECTORY"
 
 app = Flask(__name__)
 
-app.config.from_pyfile('default.cfg', silent=True)
-app.config.from_pyfile('production.cfg', silent=True)
+app.config.from_pyfile('../default.cfg', silent=True)
+app.config.from_pyfile('../production.cfg', silent=True)
 __storage = None
 api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
 cors = CORS(app, resources={r"/upload": {"origins": "*"}})
@@ -30,15 +30,7 @@ def _storage():
     """returns access to the storage (save_image(), get() and exists())"""
     global __storage
     if not __storage:
-        if app.config['STORAGE'] == 'FILESYSTEM':
-            from storage.filesystem import FileImageStorage
-
-            __storage = FileImageStorage(
-                app.config['FILESYSTEM_STORAGE_DIR'])
-        elif app.config['STORAGE'] == 'APPENGINE':
-            from storage.appengine_datastore import DatastoreImageStorage
-
-            __storage = DatastoreImageStorage()
+        __storage = FileSystemStorage(app.config[CONFIG_STORAGE_DIR])
     return __storage
 
 
@@ -115,11 +107,6 @@ def _authenticate():
     setup demo project, create all directories if FILESYSTEM is used as storage...
 """
 storage = _storage()
-if app.config['STORAGE'] == 'FILESYSTEM' and 'demo_project' in app.config['PROJECTS']:
-    project_dir = _storage().project_dir('demo_project')
-    if not os.path.isfile(os.path.join(project_dir, "welcome.jpg")):
-        with open(app.config['BASE_DIR'] + '/test_images/jpg_image.jpg', 'r') as f:
-            storage.save('demo_project', "welcome", "jpg", f.read())
 
 
 def requires_auth(f):
@@ -411,9 +398,3 @@ class ImageAPI(Resource):
 
 api.add_resource(UploadAPI, '/upload')
 api.add_resource(ImageAPI, '/api/v1.0/images/<project>/<name>.<extension>')
-
-if __name__ == '__main__':
-    if app.config['STORAGE'] == 'APPENGINE':
-        raise Exception(
-            'can\'t use flask dev server with appengine storage! check config')
-    app.run()

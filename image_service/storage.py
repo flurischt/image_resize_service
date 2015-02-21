@@ -1,18 +1,50 @@
-import os.path as op
-import os
-
+from abc import abstractmethod
 from werkzeug.utils import secure_filename
-from werkzeug.exceptions import NotFound
 from flask import safe_join
+from werkzeug.exceptions import NotFound
 
-from storage import ImageStorage
+import tempfile
+import os
+import utils
 
 
-class FileImageStorage(ImageStorage):
+class Storage(object):
+    """represents a storage"""
+
+    @abstractmethod
+    def exists(self, project, name, extension, size=None):
+        """true if image is in this storage, false otherwise"""
+        pass
+
+    def save_image(self, project, name, extension, pil_image, mode=None):
+        """put the given pil image to the storage"""
+        binary = tempfile.TemporaryFile()
+        pil_image.save(binary, utils.pil_format_from_file_extension(extension))
+        binary.seek(0)
+        self.save(project, name, extension, binary.read(), mode)
+        binary.seek(0)
+        return binary
+
+    @abstractmethod
+    def save(self, project, name, extension, binary_data, mode=None):
+        """saves the binary_image_data by creating or overwriting the project-name-extension-size images"""
+        pass
+
+    @abstractmethod
+    def get(self, project, name, extension, mode=None):
+        """returns a filedescriptor to the image (file, or io)"""
+        pass
+
+    @abstractmethod
+    def delete(self, project, name, extension, mode=None):
+        """delete the image"""
+        pass
+
+
+class FileSystemStorage(Storage):
 
     def __init__(self, image_dir):
         self._image_dir = image_dir
-        #check if folder exists
         if not os.path.isdir(self._image_dir):
             os.makedirs(self._image_dir)
 
@@ -29,7 +61,7 @@ class FileImageStorage(ImageStorage):
         return project_dir
 
     def exists(self, project, name, extension, mode=None):
-        return op.isfile(self._path_to_image(project, name, extension, mode))
+        return os.path.isfile(self._path_to_image(project, name, extension, mode))
 
     def save(self, project, name, extension, binary_image_data, mode=None):
         with open(self._path_to_image(project, name, extension, mode), 'wb') as f:
@@ -37,7 +69,7 @@ class FileImageStorage(ImageStorage):
 
     def get(self, project, name, extension, mode=None):
         filename = self._path_to_image(project, name, extension, mode)
-        if op.isfile(filename):
+        if os.path.isfile(filename):
             return file(filename, 'rb')
         else:
             raise NotFound()
@@ -62,6 +94,7 @@ class FileImageStorage(ImageStorage):
         :param size: a tuple containing max_width and max_height as ints
         :return: the path to the image
         """
+
         if mode:
             filename = secure_filename('%s_%s.%s' % (name, mode, extension))
             directory = self.resize_dir(project)
