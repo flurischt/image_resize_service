@@ -21,7 +21,7 @@ for the python dependencies you might want to use virtualenv:
  - source test_env/bin/activate 
 
 and then:
-pip install flask Pillow
+pip install -r requirements.txt
  
 Usage (flask built in server)
 -----
