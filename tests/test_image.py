@@ -1,6 +1,8 @@
 import unittest
-from image_service import image
+
 from PIL import Image as PILImage
+
+from image_service import image
 
 
 class TestImage(unittest.TestCase):

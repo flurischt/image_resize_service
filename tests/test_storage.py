@@ -1,6 +1,7 @@
 import unittest
 import os
 import shutil
+
 from werkzeug.exceptions import NotFound
 from PIL import Image as PILImage
 

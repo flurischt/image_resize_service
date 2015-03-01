@@ -1,10 +1,11 @@
+import shutil
+import os
+
 from werkzeug.utils import secure_filename
 from flask import safe_join
 from werkzeug.exceptions import NotFound
-import image
-import shutil
 
-import os
+import image
 
 
 class FileSystemStorage(object):
