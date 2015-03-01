@@ -40,6 +40,10 @@ class TestImageService(unittest.TestCase):
         except OSError:
             pass
 
+    def _test_image_path(self, image_name):
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        return os.path.join(current_dir, "test_images", image_name)
+
     def _post_image(self, binary_image, image_name, origin=None, project=None, auth_token=None):
         origin = self.origin if origin is None else origin
         project = self.project_name if project is None else project
@@ -78,14 +82,14 @@ class TestImageService(unittest.TestCase):
     def test_invalid_auth_token(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), auth_token="invalid")
             self.assertEqual(401, response.status_code)
 
     def test_invalid_origin(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), origin="http://invalid.com")
             self.assertEqual(401, response.status_code)
 
@@ -93,21 +97,21 @@ class TestImageService(unittest.TestCase):
         image_name = "test_image"
         image_extension = "png"
         image_service.app.config['PROJECTS'][self.project_name]['auth_token'] = ('*', 'test')
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), origin="http://invalid.com")
             self.assertEqual(201, response.status_code)
 
     def test_invalid_project(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), project="invalid")
             self.assertEqual(403, response.status_code)
 
     def test_post_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
             json_payload = json.loads(response.data)
@@ -120,9 +124,9 @@ class TestImageService(unittest.TestCase):
     def test_create_identical_name_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             self._post_image(png_image, "%s.%s" % (image_name, image_extension))
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
             json_payload = json.loads(response.data)
@@ -132,7 +136,7 @@ class TestImageService(unittest.TestCase):
     def test_put_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
         self.assertEqual(201, response.status_code)
         self.assertEqual('', response.data)
@@ -140,22 +144,22 @@ class TestImageService(unittest.TestCase):
     def test_update_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             self._put_image(png_image, "%s.%s" % (image_name, image_extension))
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(200, response.status_code)
 
     def test_get_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
         response = self._get_image(image_name, image_extension)
         self.assertIsNotNone(response.data)
         self.assertEqual(200, response.status_code)
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             self.assertEqual(response.data, png_image.read())
 
     def test_get_invalid_project(self):
@@ -167,7 +171,7 @@ class TestImageService(unittest.TestCase):
     def test_get_manipulated_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open('test_images/png_image.png', 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
         response = self._get_image(image_name, image_extension, mode="crop", size=(200, 200))
