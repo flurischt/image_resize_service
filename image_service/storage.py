@@ -20,7 +20,12 @@ class FileSystemStorage(object):
         if mode is not None and (not mode == "crop" and not mode == "fit"):
             raise ValueError("only fit or crop allowed for mode")
 
+    def exists(self, project, name, extension, mode=None, size=None):
+        return os.path.isfile(self._path_to_image(project, name, extension, mode, size))
+
     def save(self, project, name, extension, binary_image_data, mode=None, size=None):
+        if self.exists(project, name, extension, mode, size):
+            self.delete(project, name, extension, mode, size)
         self._check_mode_size(mode, size)
         with open(self._path_to_image(project, name, extension, mode, size), 'wb') as f:
             f.write(binary_image_data)
@@ -43,14 +48,25 @@ class FileSystemStorage(object):
         else:
             raise NotFound()
 
-    def delete(self, project, name, extension):
-        path_to_image = self._path_to_image(project, name, extension)
+    def delete(self, project, name, extension, mode=None, size=None):
+        path_to_image = self._path_to_image(project, name, extension, mode, size)
         try:
             os.remove(path_to_image)
         except OSError:
             raise NotFound()
+        #only delete all files when no mode and size are given...
+        if mode is None and size is None:
+            manipulated_dir = self._manipulated_directory(project, name, extension)
+            if os.path.isdir(manipulated_dir):
+                shutil.rmtree(self._manipulated_directory(project, name, extension))
 
-        shutil.rmtree(self._manipulated_directory(project, name, extension))
+    def safe_name(self, project, name, extension):
+        counter = 1
+        safe_name = name
+        while(self.exists(project, safe_name, extension)):
+            safe_name = "%s-%d" % (name, counter)
+            counter += 1
+        return safe_name
 
     def _project_dir(self, project):
         project_dir = os.path.join(self._image_dir, project)

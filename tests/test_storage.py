@@ -129,8 +129,39 @@ class TestFileSystemStorage(unittest.TestCase):
             self.storage.delete(self.project, image_name, image_extension)
             self.assertFalse(os.path.isdir(manipulated_directory))
             self.assertFalse(os.path.isfile(manipulated_directory))
+        self.assertRaises(NotFound, self.storage.get, self.project, image_name, image_extension)
+        self.assertRaises(NotFound, self.storage.get, self.project, image_name, image_extension, "fit", (200, 200))
 
     def test_not_existing(self):
         image_name = 'png_image'
         image_extension = 'png'
         self.assertRaises(NotFound, self.storage.delete, self.project, image_name, image_extension)
+
+    def test_override_file(self):
+        image_name = 'png_image'
+        image_extension = 'png'
+        mode = "crop"
+        file_name = "%s-%dx%d.png" % (mode, 200, 200)
+        file_path = os.path.join(self.storage_dir, self.project, "_%s.%s/%s" % (image_name,
+                                                                                    image_extension,
+                                                                                    file_name))
+        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+            self.storage.save(self.project, image_name, image_extension, png_file.read())
+            self.storage.get(self.project, image_name, image_extension, mode, (200, 200))
+            self.assertTrue(os.path.isfile(file_path))
+
+        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+            self.storage.save(self.project, image_name, image_extension, png_file.read())
+            self.assertFalse(os.path.isfile(file_path))
+
+    def test_safe_name(self):
+        image_name = 'png_image'
+        image_extension = 'png'
+        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+            self.storage.save(self.project, image_name, image_extension, png_file.read())
+        safe_name = self.storage.safe_name(self.project, image_name, image_extension)
+        self.assertEqual("%s-1" % (image_name, image_extension), safe_name)
+        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+            self.storage.save(self.project, safe_name, image_extension, png_file.read())
+        safe_name = self.storage.safe_name(self.project, image_name, image_extension)
+        self.assertEqual("%s-2" % (image_name, image_extension), safe_name)
