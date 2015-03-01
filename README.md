@@ -1,7 +1,5 @@
 image_resize_service
 ========
-[![Build Status](https://travis-ci.org/flurischt/image_resize_service.svg?branch=master)](https://travis-ci.org/flurischt/image_resize_service)
-
 a flask based and google app engine compatible webapp to resize images. specify a project and some image dimensions (production.cfg), put your images into the source directory and then use "/img/image_name@dimension.extension" as image-src to get resized images.
 depending on your images you won't get images that exactly match the configured dimension but all images will fit into the bounding box.
 
