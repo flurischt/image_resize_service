@@ -9,7 +9,6 @@ import image
 
 
 class FileSystemStorage(object):
-
     def __init__(self, image_dir):
         self._image_dir = image_dir
         if not os.path.isdir(self._image_dir):
@@ -55,7 +54,7 @@ class FileSystemStorage(object):
             os.remove(path_to_image)
         except OSError:
             raise NotFound()
-        #only delete all files when no mode and size are given...
+        # only delete all files when no mode and size are given...
         if mode is None and size is None:
             manipulated_dir = self._manipulated_directory(project, name, extension)
             if os.path.isdir(manipulated_dir):
@@ -64,7 +63,7 @@ class FileSystemStorage(object):
     def safe_name(self, project, name, extension):
         counter = 1
         safe_name = name
-        while(self.exists(project, safe_name, extension)):
+        while (self.exists(project, safe_name, extension)):
             safe_name = "%s-%d" % (name, counter)
             counter += 1
         return safe_name

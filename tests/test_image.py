@@ -6,7 +6,6 @@ from image_service import image
 
 
 class TestImage(unittest.TestCase):
-
     def test_fit_image(self):
         image_path = 'png_image.png'
         with open('test_images/%s' % image_path, 'r') as png_file:

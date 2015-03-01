@@ -7,10 +7,11 @@
 <body>
 here you can upload an image.<br/> you will be asked for a username and password.
 check <b>"auth"</b> in production.cfg. if the authentication always fails, make sure that you have written
-the projectname correct.<br /><br />
+the projectname correct.<br/><br/>
+
 <form action="/upload" method="POST" enctype="multipart/form-data">
     project: <input type="text" name="project" value="demo_project"/><br/>
-    Image: <input type=file name=file><br />
+    Image: <input type=file name=file><br/>
     <input type="submit" value="Upload Image"/>
 </form>
 </body>

@@ -23,7 +23,8 @@ _storage = None
 
 @app.after_request
 def add_header(response):
-    response.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Cache-Control, Authorization'
+    response.headers[
+        'Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Cache-Control, Authorization'
     return response
 
 
@@ -72,7 +73,7 @@ def requires_auth(f):
         if project is None or project not in app.config['PROJECTS']:
             raise Forbidden()
 
-        #check if it has auth token
+        # check if it has auth token
         auth_header = request.headers.get('Authorization')
         origin = request.headers.get('Origin')
         if auth_header is not None and origin is not None and auth_header.startswith('Token'):
@@ -146,7 +147,6 @@ class UploadAPI(Resource):
             }
         ]
     )
-
     @marshal_with(UploadResponse.resource_fields)
     def post(self, project):
         args = self.reqparse.parse_args()
@@ -223,7 +223,6 @@ class ImageAPI(Resource):
             }
         ]
     )
-
     @swagger.operation(
         notes='delete existing image',
 
@@ -269,7 +268,6 @@ class ImageAPI(Resource):
             }
         ]
     )
-
     @requires_auth
     def put(self, project, name, extension):
         args = self.reqparse.parse_args()
@@ -294,12 +292,14 @@ class ManipulatedImageAPI(Resource):
     """
     API that supports GET for manipulated images.
     """
+
     def get(self, project, name, mode, width, height, extension):
         try:
             image = storage().get(project, name, extension, mode, (int(width), int(height)))
         except ValueError:
             raise NotFound()
         return _serve_image(image, extension)
+
 
 api.add_resource(UploadAPI, '/images/<project>/')
 api.add_resource(ImageAPI, '/images/<project>/<name>.<extension>')
