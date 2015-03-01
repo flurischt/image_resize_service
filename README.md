@@ -1,7 +1,5 @@
 image_resize_service
 ========
-[![Build Status](https://travis-ci.org/flurischt/image_resize_service.svg?branch=master)](https://travis-ci.org/flurischt/image_resize_service)
-
 a flask based and google app engine compatible webapp to resize images. specify a project and some image dimensions (production.cfg), put your images into the source directory and then use "/img/image_name@dimension.extension" as image-src to get resized images.
 depending on your images you won't get images that exactly match the configured dimension but all images will fit into the bounding box.
 
@@ -12,7 +10,7 @@ Requirements available in pip:
 for Pillow you'll need at least libjpeg: 
  - osx: brew install libpjeg
  - linux: use your packet manager
- - windows: use google
+ - windows: use google, or just don't use windows ;)
 
 Installation (OSX)
 -----
@@ -27,20 +25,10 @@ pip install -r requirements.txt
  
 Usage (flask built in server)
 -----
- - configure STORAGE='FILESYSTEM' in production.cfg
  - python image_resize_service.py
  - open http://127.0.0.1:5000/
 
 make sure to source bin/activate if using virtualenv
-
-Usage (app engine)
------
- - configure STORAGE='APPENGINE' in production.cfg
- - cd image_resize_service_source_directory
- - mkdir lib
- - pip install -r requirements_appengine.txt -t lib
- - dev_appserver.py .
- - open http://127.0.0.1:8080/
 
 make sure that PIL is in your pythonpath too. (virtualenv?)
 
@@ -52,23 +40,15 @@ Not yet. search google to see how a flask app can be hosted.
 for performance reasons it would make sense to have the webserver serve your images and only use this service for non-existing images.
 on apache this could be implemented using .htaccess and some rewrite if not exists rules.
 
-App engine
---- 
-you need to deploy this application and also the required libraries inside the lib/ folder. 
-DO NOT install Pillow into lib/. use virtualenv for development or install it globally on your machine. but not on app engine.
- - make sure the required libraries are installed in the lib/ folder (see USAGE above)
- - add your own application id to app.yaml (replace image-resize-service on the first line)
- - deploy using "appcfg.py update ."
-
 API
 -----
 fitting images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@fit-<size>.extension
+GET /img/PROJECTNAME/image_name_without_extension@fit-<width>x<height>.extension
 
 cropping images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@crop-<size>.extension
+GET /img/PROJECTNAME/image_name_without_extension@crop-<with>x<height>.extension
 
 uploading images
 ---

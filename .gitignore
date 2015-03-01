@@ -9,4 +9,4 @@ lib/
 *.pyc
 
 #demo images folder
-images/
+storage/
