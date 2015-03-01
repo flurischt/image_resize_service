@@ -46,11 +46,11 @@ API
 -----
 fitting images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@fit-<size>.extension
+GET /img/PROJECTNAME/image_name_without_extension@fit-<width>x<height>.extension
 
 cropping images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@crop-<size>.extension
+GET /img/PROJECTNAME/image_name_without_extension@crop-<with>x<height>.extension
 
 uploading images
 ---
