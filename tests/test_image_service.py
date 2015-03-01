@@ -82,6 +82,21 @@ class TestImageService(unittest.TestCase):
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), auth_token="invalid")
             self.assertEqual(401, response.status_code)
 
+    def test_invalid_origin(self):
+        image_name = "test_image"
+        image_extension = "png"
+        with open('test_images/png_image.png', 'r') as png_image:
+            response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), origin="http://invalid.com")
+            self.assertEqual(401, response.status_code)
+
+    def test_wildcard_origin(self):
+        image_name = "test_image"
+        image_extension = "png"
+        image_service.app.config['PROJECTS'][self.project_name]['auth_token'] = ('*', 'test')
+        with open('test_images/png_image.png', 'r') as png_image:
+            response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), origin="http://invalid.com")
+            self.assertEqual(201, response.status_code)
+
     def test_invalid_project(self):
         image_name = "test_image"
         image_extension = "png"

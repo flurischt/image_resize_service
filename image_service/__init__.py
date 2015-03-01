@@ -33,6 +33,7 @@ def storage():
         _storage = FileSystemStorage(app.config[CONFIG_STORAGE_DIR])
     return _storage
 
+
 def _check_auth(username, password, project):
     """This function is called to check if a username /
     password combination is valid.
@@ -45,7 +46,7 @@ def _check_auth(username, password, project):
 
 def _check_auth_token(origin, token, project):
     correct_origin, correct_token = app.config['PROJECTS'][project]['auth_token']
-    return token == correct_token and origin == correct_origin
+    return (correct_origin == "*" or origin == correct_origin) and token == correct_token
 
 
 def _serve_image(image_file, extension):
@@ -278,12 +279,10 @@ class ImageAPI(Resource):
 
     @requires_auth
     def delete(self, project, name, extension):
-        if project not in app.config['PROJECTS']:
-            return {'status': 'fail',
-                    'message': 'this project does not exist'}, 500
-        success = storage.delete(project, name, extension)
-        code = 200 if success else 404
-        return Response('', 201 if created else 200)
+        if storage().exists(project, name, extension):
+            storage().delete(project, name, extension)
+            return Response('', 200)
+        raise NotFound()
 
     def get(self, project, name, extension):
         image = storage().get(project, name, extension)
