@@ -21,6 +21,10 @@ class TestFileSystemStorage(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.storage_dir)
 
+    def _test_image_path(self, image_name):
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        return os.path.join(current_dir, "test_images", image_name)
+
     def test_create_storage_dir(self):
         self.assertTrue(os.path.exists(self.storage_dir))
 
@@ -28,7 +32,7 @@ class TestFileSystemStorage(unittest.TestCase):
         image_name = 'png_image'
         image_extension = 'png'
         file_path = os.path.join(self.storage_dir, self.project, "%s.%s" % (image_name, image_extension))
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
 
         self.assertTrue(os.path.exists(file_path))
@@ -37,7 +41,7 @@ class TestFileSystemStorage(unittest.TestCase):
         image_name = 'png_image'
         image_extension = 'png'
         file_path = os.path.join(self.storage_dir, self.project, "%s.%s" % (image_name, image_extension))
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
             image_file = self.storage.get(self.project, image_name, image_extension)
             image_file.seek(0)
@@ -60,7 +64,7 @@ class TestFileSystemStorage(unittest.TestCase):
         image_name = 'png_image'
         image_extension = 'png'
         mode = "crop"
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read(), mode, (200, 200))
             file_name = "%s-%dx%d.png" % (mode, 200, 200)
             file_path = os.path.join(self.storage_dir, self.project, "_%s.%s/%s" % (image_name,
@@ -72,7 +76,7 @@ class TestFileSystemStorage(unittest.TestCase):
         image_name = 'png_image'
         image_extension = 'png'
         mode = "fit"
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read(), mode, (200, 200))
             file_name = "%s-%dx%d.png" % (mode, 200, 200)
             file_path = os.path.join(self.storage_dir, self.project, "_%s.%s/%s" % (image_name,
@@ -84,7 +88,7 @@ class TestFileSystemStorage(unittest.TestCase):
         image_name = 'png_image'
         image_extension = 'png'
         mode = "crop"
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
             image_file = self.storage.get(self.project, image_name, image_extension, mode, (200, 200))
             file_name = "%s-%dx%d.png" % (mode, 200, 200)
@@ -100,7 +104,7 @@ class TestFileSystemStorage(unittest.TestCase):
         image_name = 'png_image'
         image_extension = 'png'
         mode = "fit"
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
             image_file = self.storage.get(self.project, image_name, image_extension, mode, (200, 200))
             file_name = "%s-%dx%d.png" % (mode, 200, 200)
@@ -115,7 +119,7 @@ class TestFileSystemStorage(unittest.TestCase):
     def test_delete_image(self):
         image_name = 'png_image'
         image_extension = 'png'
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
             self.storage.get(self.project, image_name, image_extension, "crop", (200, 200))
             self.storage.get(self.project, image_name, image_extension, "fit", (200, 200))
@@ -143,25 +147,25 @@ class TestFileSystemStorage(unittest.TestCase):
         mode = "crop"
         file_name = "%s-%dx%d.png" % (mode, 200, 200)
         file_path = os.path.join(self.storage_dir, self.project, "_%s.%s/%s" % (image_name,
-                                                                                    image_extension,
-                                                                                    file_name))
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+                                                                                image_extension,
+                                                                                file_name))
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
             self.storage.get(self.project, image_name, image_extension, mode, (200, 200))
             self.assertTrue(os.path.isfile(file_path))
 
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
             self.assertFalse(os.path.isfile(file_path))
 
     def test_safe_name(self):
         image_name = 'png_image'
         image_extension = 'png'
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, image_name, image_extension, png_file.read())
         safe_name = self.storage.safe_name(self.project, image_name, image_extension)
-        self.assertEqual("%s-1" % (image_name, image_extension), safe_name)
-        with open('test_images/%s.%s' % (image_name, image_extension), 'r') as png_file:
+        self.assertEqual("%s-1" % image_name, safe_name)
+        with open(self._test_image_path('%s.%s' % (image_name, image_extension)), 'r') as png_file:
             self.storage.save(self.project, safe_name, image_extension, png_file.read())
         safe_name = self.storage.safe_name(self.project, image_name, image_extension)
-        self.assertEqual("%s-2" % (image_name, image_extension), safe_name)
+        self.assertEqual("%s-2" % image_name, safe_name)
