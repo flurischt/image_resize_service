@@ -1,7 +1,7 @@
 import mimetypes
 from functools import wraps
 
-from flask import Flask, send_file, request, Response
+from flask import Flask, send_file, request, Response, render_template
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_restful_swagger import swagger
 from flask_cors import CORS
@@ -65,6 +65,9 @@ def _authenticate():
         401,
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
+@app.route('/')
+def index():
+    return render_template('demo.html')
 
 def requires_auth(f):
     @wraps(f)

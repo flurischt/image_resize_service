@@ -36,32 +36,49 @@ Production use
 -----
 Apache
 ---
-Not yet. search google to see how a flask app can be hosted. 
-for performance reasons it would make sense to have the webserver serve your images and only use this service for non-existing images.
+    A flask based web service to resize images. Specify a project for a namespace.
+    Than just POST some images and GET them cropped or fitted. the syntax to use is directly visible in the
+    URL:<br/><br/>
+
+    GET /img/[project]/image_name_without_extension@[fit|crop]-[width]x[height]>.extension
+
+search google to see how a flask app can be hosted. For performance reasons it would make sense to have the webserver serve your images and only use this service for non-existing images.
 on apache this could be implemented using .htaccess and some rewrite if not exists rules.
 
 API
 -----
+uploading images
+---
+POST /images/PROJECTNAME
+
+-----
+Updating images
+---
+PUT /images/PROJECTNAME/image_name_with_extension
+
+-----
+Deleting images
+---
+DELETE /images/PROJECTNAME/image_name_with_extension
+
+-----
 fitting images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@fit-<width>x<height>.extension
+GET /images/PROJECTNAME/image_name_without_extension@fit-<width>x<height>.extension
 
 cropping images
 ---
-GET /img/PROJECTNAME/image_name_without_extension@crop-<with>x<height>.extension
+GET /images/PROJECTNAME/image_name_without_extension@crop-<with>x<height>.extension
 
-uploading images
----
-POST /upload
-project=THE_NAME_OF_THE_PROJECT
-file=your image
+
+
 
 enctype must be "multipart/form-data"
-check /uploadform to see an example
 
-/upload is HTTP basic protected. you need to use the username/password configured in production.cfg
-Output is json containing either { 'status' : 'OK', 'url' : 'url_to_uploaded_fullsize_image' } (HTTP Statuscode 200)
-or { 'status' : 'fail', 'message' : 'some_error_message' } (HTTP Statuscode 500)
+POST /images/PROJECTNAME
+
+You can secure your service by defining a token to an origin URL, see config file for more details...
+
 
 checkout /api/spec.html#!/spec.json for the full documentation
 
