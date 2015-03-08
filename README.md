@@ -26,37 +26,37 @@ API
 Legend:
 ---
 
-<project> = project name added in config
-<image_name> = image name without extension
-<extension> = image file extension
-<width> = Desired image width
-<height> = Desired image height
+\<project\> = project name added in config
+\<image_name\> = image name without extension
+\<extension\> = image file extension
+\<width\> = Desired image width
+\<height\> = Desired image height
 
 uploading images
 ---
-POST /images/<project>
+POST /images/\<project\>
 
 Notice: enctype must be "multipart/form-data"
 
 Updating images
 ---
-PUT /images/<project>/<image_name>.<extension>
+PUT /images/\<project\>/\<image_name\>.\<extension\>
 
 Deleting images
 ---
-DELETE /images/<project>/<image_name>.<extension>
+DELETE /images/\<project\>/\<image_name\>.\<extension\>
 
 Orginal image
 ---
-GET /images/<project>/<image_name>.<extension>
+GET /images/\<project\>/\<image_name\>.\<extension\>
 
 fitting images
 ---
-GET /images/<project>/<image_name>@fit-<width>x<height>.<extension>
+GET /images/\<project\>/\<image_name\>@fit-\<width\>x\<height\>.\<extension\>
 
 cropping images
 ---
-GET /images/<project>/<image_name>@crop-<with>x<height>.<extension>
+GET /images/\<project\>/\<image_name\>@crop-\<with\>x\<height\>.\<extension\>
 
 
 TODO
