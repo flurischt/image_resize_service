@@ -1,7 +1,7 @@
 import mimetypes
 from functools import wraps
 
-from flask import Flask, send_file, request, Response
+from flask import Flask, send_file, request, Response, render_template
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_restful_swagger import swagger
 from flask_cors import CORS
@@ -66,6 +66,11 @@ def _authenticate():
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 
+@app.route('/')
+def index():
+    return render_template('demo.html')
+
+
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -77,7 +82,7 @@ def requires_auth(f):
         auth_header = request.headers.get('Authorization')
         origin = request.headers.get('Origin')
         if auth_header is not None and origin is not None and auth_header.startswith('Token'):
-            #get the origin header
+            # get the origin header
             key, token = auth_header.split(" ")
             if _check_auth_token(origin, token, project):
                 return f(*args, **kwargs)
@@ -122,31 +127,6 @@ class UploadAPI(Resource):
                                    help='No file provided', location='files')
         super(UploadAPI, self).__init__()
 
-    @swagger.operation(
-        notes='create a new image. filename is chosen by the server',
-        responseClass=UploadResponse.__name__,
-        nickname='upload',
-        parameters=[
-            {
-                "name": "file",
-                "description": "an image uploaded using multipart-formdata",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": file.__name__,
-                "paramType": "body"
-            }
-        ],
-        responseMessages=[
-            {
-                "code": 201,
-                "message": "Created."
-            },
-            {
-                "code": 400,
-                "message": "Invalid input"
-            }
-        ]
-    )
     @marshal_with(UploadResponse.resource_fields)
     def post(self, project):
         args = self.reqparse.parse_args()
@@ -170,104 +150,6 @@ class ImageAPI(Resource):
                                    help='No file provided', location='files')
         super(ImageAPI, self).__init__()
 
-    @swagger.operation(
-        notes='create or overwrite an image',
-
-        nickname='put image',
-        parameters=[
-            {
-                "name": "file",
-                "description": "an image uploaded using multipart-formdata",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": "file",
-                "paramType": "body"
-            },
-            {
-                "name": "project",
-                "description": "the project under which to create the img",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": str.__name__,
-                "paramType": "path"
-            },
-            {
-                "name": "name",
-                "description": "the name of the image",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": str.__name__,
-                "paramType": "path"
-            },
-            {
-                "name": "extension",
-                "description": "the extension of this image",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": str.__name__,
-                "paramType": "path"
-            }
-        ],
-        responseMessages=[
-            {
-                "code": 201,
-                "message": "Created."
-            },
-            {
-                "code": 200,
-                "message": "Updated"
-            },
-            {
-                "code": 400,
-                "message": "Invalid input"
-            }
-        ]
-    )
-    @swagger.operation(
-        notes='delete existing image',
-
-        nickname='delete image',
-        parameters=[
-            {
-                "name": "project",
-                "description": "the project under which to create the img",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": str.__name__,
-                "paramType": "path"
-            },
-            {
-                "name": "name",
-                "description": "the name of the image",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": str.__name__,
-                "paramType": "path"
-            },
-            {
-                "name": "extension",
-                "description": "the extension of this image",
-                "required": True,
-                "allowMultiple": False,
-                "dataType": str.__name__,
-                "paramType": "path"
-            }
-        ],
-        responseMessages=[
-            {
-                "code": 200,
-                "message": "Deleted."
-            },
-            {
-                "code": 404,
-                "message": "Image does not exist."
-            },
-            {
-                "code": 400,
-                "message": "Invalid input"
-            }
-        ]
-    )
     @requires_auth
     def put(self, project, name, extension):
         args = self.reqparse.parse_args()

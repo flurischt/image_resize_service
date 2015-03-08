@@ -1,7 +1,6 @@
-image_resize_service
+Image Service
 ========
-a flask based and google app engine compatible webapp to resize images. specify a project and some image dimensions (production.cfg), put your images into the source directory and then use "/img/image_name@dimension.extension" as image-src to get resized images.
-depending on your images you won't get images that exactly match the configured dimension but all images will fit into the bounding box.
+A flask based and google app engine compatible webapp to resize images.
 
 Requirements available in pip:
  - Pillow (or PIL on app engine)
@@ -15,55 +14,53 @@ for Pillow you'll need at least libjpeg:
 Installation (OSX)
 -----
 brew install libjpeg
-
-for the python dependencies you might want to use virtualenv:
- - virtualenv test_env
- - source test_env/bin/activate 
-
-and then:
 pip install -r requirements.txt
  
 Usage (flask built in server)
 -----
- - python image_resize_service.py
+ - python runserver.py
  - open http://127.0.0.1:5000/
-
-make sure to source bin/activate if using virtualenv
-
-make sure that PIL is in your pythonpath too. (virtualenv?)
-
-Production use
------
-Apache
----
-Not yet. search google to see how a flask app can be hosted. 
-for performance reasons it would make sense to have the webserver serve your images and only use this service for non-existing images.
-on apache this could be implemented using .htaccess and some rewrite if not exists rules.
 
 API
 -----
-fitting images
----
-GET /img/PROJECTNAME/image_name_without_extension@fit-<width>x<height>.extension
-
-cropping images
----
-GET /img/PROJECTNAME/image_name_without_extension@crop-<with>x<height>.extension
+Legend:
+__
+<project> = project name added in config
+<image_name> = image name without extension
+<extension> = image file extension
+<width> = Desired image width
+<height> = Desired image height
 
 uploading images
 ---
-POST /upload
-project=THE_NAME_OF_THE_PROJECT
-file=your image
+POST /images/<project>
 
-enctype must be "multipart/form-data"
-check /uploadform to see an example
+Notice: enctype must be "multipart/form-data"
 
-/upload is HTTP basic protected. you need to use the username/password configured in production.cfg
-Output is json containing either { 'status' : 'OK', 'url' : 'url_to_uploaded_fullsize_image' } (HTTP Statuscode 200)
-or { 'status' : 'fail', 'message' : 'some_error_message' } (HTTP Statuscode 500)
+-----
+Updating images
+---
+PUT /images/<project>/<image_name>.<extension>
 
-checkout /api/spec.html#!/spec.json for the full documentation
+-----
+Deleting images
+---
+DELETE /images/<project>/<image_name>.<extension>
+
+-----
+Orginal image
+---
+GET /images/<project>/<image_name>.<extension>
+
+-----
+fitting images
+---
+GET /images/<project>/<image_name>@fit-<width>x<height>.<extension>
+
+cropping images
+---
+GET /images/<project>/<image_name>@crop-<with>x<height>.<extension>
+
 
 TODO
 -----
@@ -76,7 +73,6 @@ Copyright
 License
 -------
 BSD 2-Clause, see the LICENSE file
-
 
 
 Copyright 2014 Flurin Rindisbacher
