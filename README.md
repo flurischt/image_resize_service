@@ -1,7 +1,6 @@
-image_resize_service
+Image Service
 ========
-a flask based and google app engine compatible webapp to resize images. specify a project and some image dimensions (production.cfg), put your images into the source directory and then use "/img/image_name@dimension.extension" as image-src to get resized images.
-depending on your images you won't get images that exactly match the configured dimension but all images will fit into the bounding box.
+A flask based and google app engine compatible webapp to resize images.
 
 Requirements available in pip:
  - Pillow (or PIL on app engine)
@@ -15,72 +14,53 @@ for Pillow you'll need at least libjpeg:
 Installation (OSX)
 -----
 brew install libjpeg
-
-for the python dependencies you might want to use virtualenv:
- - virtualenv test_env
- - source test_env/bin/activate 
-
-and then:
 pip install -r requirements.txt
  
 Usage (flask built in server)
 -----
- - python image_resize_service.py
+ - python runserver.py
  - open http://127.0.0.1:5000/
-
-make sure to source bin/activate if using virtualenv
-
-make sure that PIL is in your pythonpath too. (virtualenv?)
-
-Production use
------
-Apache
----
-    A flask based web service to resize images. Specify a project for a namespace.
-    Than just POST some images and GET them cropped or fitted. the syntax to use is directly visible in the
-    URL:<br/><br/>
-
-    GET /img/[project]/image_name_without_extension@[fit|crop]-[width]x[height]>.extension
-
-search google to see how a flask app can be hosted. For performance reasons it would make sense to have the webserver serve your images and only use this service for non-existing images.
-on apache this could be implemented using .htaccess and some rewrite if not exists rules.
 
 API
 -----
+Legend:
+__
+<project> = project name added in config
+<image_name> = image name without extension
+<extension> = image file extension
+<width> = Desired image width
+<height> = Desired image height
+
 uploading images
 ---
-POST /images/PROJECTNAME
+POST /images/<project>
+
+Notice: enctype must be "multipart/form-data"
 
 -----
 Updating images
 ---
-PUT /images/PROJECTNAME/image_name_with_extension
+PUT /images/<project>/<image_name>.<extension>
 
 -----
 Deleting images
 ---
-DELETE /images/PROJECTNAME/image_name_with_extension
+DELETE /images/<project>/<image_name>.<extension>
+
+-----
+Orginal image
+---
+GET /images/<project>/<image_name>.<extension>
 
 -----
 fitting images
 ---
-GET /images/PROJECTNAME/image_name_without_extension@fit-<width>x<height>.extension
+GET /images/<project>/<image_name>@fit-<width>x<height>.<extension>
 
 cropping images
 ---
-GET /images/PROJECTNAME/image_name_without_extension@crop-<with>x<height>.extension
+GET /images/<project>/<image_name>@crop-<with>x<height>.<extension>
 
-
-
-
-enctype must be "multipart/form-data"
-
-POST /images/PROJECTNAME
-
-You can secure your service by defining a token to an origin URL, see config file for more details...
-
-
-checkout /api/spec.html#!/spec.json for the full documentation
 
 TODO
 -----
@@ -93,7 +73,6 @@ Copyright
 License
 -------
 BSD 2-Clause, see the LICENSE file
-
 
 
 Copyright 2014 Flurin Rindisbacher
