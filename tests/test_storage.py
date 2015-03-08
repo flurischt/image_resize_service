@@ -1,9 +1,9 @@
 import unittest
 import os
 import shutil
+from PIL import Image as PILImage
 
 from werkzeug.exceptions import NotFound
-from PIL import Image as PILImage
 
 from image_service.storage import FileSystemStorage
 

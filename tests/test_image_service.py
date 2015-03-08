@@ -3,7 +3,6 @@ import os
 import shutil
 import json
 from StringIO import StringIO
-
 from PIL import Image as PILImage
 
 import image_service

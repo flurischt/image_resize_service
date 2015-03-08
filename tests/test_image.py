@@ -1,6 +1,5 @@
 import unittest
 import os
-
 from PIL import Image as PILImage
 
 from image_service import image

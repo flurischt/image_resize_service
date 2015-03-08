@@ -11,7 +11,8 @@
 <h1>Image Service</h1>
 
 <p>
-    A flask based web service to resize images. Specify a project in your *.cfg file to use as a namespace for your images.
+    A flask based web service to resize images. Specify a project in your *.cfg file to use as a namespace for your
+    images.
     Then just POST some images and GET them cropped or fitted. the syntax to use is directly visible in the
     URL:<br/><br/>
 
@@ -24,6 +25,7 @@
 <div class="dropzone" style="height:100px;width:600px"></div>
 
 <h3>Results</h3>
+
 <div id="Result"></div>
 
 
@@ -49,17 +51,17 @@
             image_div.append('<p><a href="' + fileName + '.' + extension + '" target="_blank">Original</a></p>');
             for (i in sizes) {
                 size = sizes[i];
-                crop_image_src = fileName +'@crop-'+ size[0] +'x'+ size[1] + '.' + extension;
-                fit_image_src = fileName +'@fit-'+ size[0] +'x'+ size[1] + '.' + extension;
+                crop_image_src = fileName + '@crop-' + size[0] + 'x' + size[1] + '.' + extension;
+                fit_image_src = fileName + '@fit-' + size[0] + 'x' + size[1] + '.' + extension;
 
                 image_div.append('<img src="' + crop_image_src + '"/>');
                 image_div.append('<img src="' + fit_image_src + '"/>');
-                image_div.append('<p><a href="' + crop_image_src + '" target="_blank">' + crop_image_src +'</a></p>');
-                image_div.append('<p><a href="' + fit_image_src + '" target="_blank">' + fit_image_src +'</a></p>');
+                image_div.append('<p><a href="' + crop_image_src + '" target="_blank">' + crop_image_src + '</a></p>');
+                image_div.append('<p><a href="' + fit_image_src + '" target="_blank">' + fit_image_src + '</a></p>');
             }
             resultZone.append(image_div);
 
-            $("html, body").animate({ scrollTop: resultZone.offset().top }, 600);
+            $("html, body").animate({scrollTop: resultZone.offset().top}, 600);
             this.removeFile(file)
         }
     });

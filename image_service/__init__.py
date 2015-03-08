@@ -3,7 +3,6 @@ from functools import wraps
 
 from flask import Flask, send_file, request, Response, render_template
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
-from flask_restful_swagger import swagger
 from flask_cors import CORS
 from werkzeug.exceptions import Forbidden
 
@@ -15,7 +14,7 @@ CONFIG_STORAGE_DIR = "STORAGE_DIRECTORY"
 app = Flask(__name__)
 app.config.from_pyfile('../default.cfg', silent=True)
 app.config.from_pyfile('../production.cfg', silent=True)
-api = swagger.docs(Api(app), apiVersion='0.1', basePath=app.config['BASEPATH'])
+api = Api(app)
 cors = CORS(app, resources={r"/upload": {"origins": "*"}})
 
 _storage = None
