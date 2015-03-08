@@ -24,7 +24,8 @@ Usage (flask built in server)
 API
 -----
 Legend:
-__
+---
+
 <project> = project name added in config
 <image_name> = image name without extension
 <extension> = image file extension
@@ -37,22 +38,18 @@ POST /images/<project>
 
 Notice: enctype must be "multipart/form-data"
 
------
 Updating images
 ---
 PUT /images/<project>/<image_name>.<extension>
 
------
 Deleting images
 ---
 DELETE /images/<project>/<image_name>.<extension>
 
------
 Orginal image
 ---
 GET /images/<project>/<image_name>.<extension>
 
------
 fitting images
 ---
 GET /images/<project>/<image_name>@fit-<width>x<height>.<extension>
