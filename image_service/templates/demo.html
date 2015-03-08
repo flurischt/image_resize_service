@@ -37,9 +37,6 @@
         url: "http://127.0.0.1:5000/images/demo_project/",
         acceptedMimeTypes: 'image/*',
         headers: {"Authorization": "Token demo"},
-        sending: function (file, xhr, fd) {
-
-        },
         success: function (file, responseText) {
             var extension = responseText.url.split('.').pop();
             var fileName = responseText.url.split('.').shift();

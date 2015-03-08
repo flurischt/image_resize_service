@@ -5,6 +5,7 @@ from flask import Flask, send_file, request, Response, render_template
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_cors import CORS
 from werkzeug.exceptions import Forbidden
+import werkzeug
 
 from storage import *
 
@@ -107,7 +108,6 @@ def serve_image(project_name, name, extension, mode=None, size=None):
     return _serve_image(project_name, name, extension, mode, size)
 
 
-@swagger.model
 class UploadResponse:
     resource_fields = {
         'url': fields.String
@@ -122,7 +122,7 @@ class UploadAPI(Resource):
 
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument('file', type=file, required=True,
+        self.reqparse.add_argument('file', type=werkzeug.datastructures.FileStorage, required=True,
                                    help='No file provided', location='files')
         super(UploadAPI, self).__init__()
 
@@ -145,7 +145,7 @@ class ImageAPI(Resource):
 
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument('file', type=file, required=True,
+        self.reqparse.add_argument('file', type=werkzeug.datastructures.FileStorage, required=True,
                                    help='No file provided', location='files')
         super(ImageAPI, self).__init__()
 
