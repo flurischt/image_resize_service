@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.config.from_pyfile('../default.cfg', silent=True)
 app.config.from_pyfile('../production.cfg', silent=True)
 api = Api(app)
-cors = CORS(app, resources={r"/upload": {"origins": "*"}})
+cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
 _storage = None
 
