@@ -32,9 +32,8 @@
 <script>
     // God i hate javascript, it's just so messy ;)
 
-
     new Dropzone("div.dropzone", {
-        url: "http://127.0.0.1:5000/images/demo_project/",
+        url: location.protocol + "//" + window.location.host + "/images/demo_project/",
         acceptedMimeTypes: 'image/*',
         headers: {"Authorization": "Token demo"},
         success: function (file, responseText) {

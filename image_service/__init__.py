@@ -14,7 +14,7 @@ CONFIG_STORAGE_DIR = "STORAGE_DIRECTORY"
 
 app = Flask(__name__)
 app.config.from_pyfile('../default.cfg', silent=True)
-app.config.from_pyfile('../production.cfg', silent=True)
+app.config.from_envvar('IMAGE_SERVICE_CONFIG', silent=True)
 api = Api(app)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -68,7 +68,9 @@ def _authenticate():
 
 @app.route('/')
 def index():
-    return render_template('demo.html')
+    if app.config['ENABLE_DEMO']:
+        return render_template('demo.html')
+    return Response('Nothing to see here ;)', 404)
 
 
 def requires_auth(f):

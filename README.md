@@ -15,11 +15,33 @@ Installation (OSX)
 -----
 brew install libjpeg
 pip install -r requirements.txt
+
  
 Usage (flask built in server)
 -----
  - python runserver.py
  - open http://127.0.0.1:5000/
+ 
+ 
+Dockers
+-----
+Configuration for docker can be set in docker.cfg
+
+- Run:
+
+    ```
+    docker run -v /image_data --name image_data ubuntu
+    docker build -t docker_image_service <project_root>
+    docker run -d -P -i --volumes-from image_data --name image_service docker_image_service`
+    ```
+
+- get port for image service:
+
+    ```
+    docker port image_service
+    ```
+
+- open http://localhost:<port>/ (for boot2docker use the ip of the VM -> boot2docker ip)
 
 API
 -----
