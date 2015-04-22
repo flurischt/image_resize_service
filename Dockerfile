@@ -24,7 +24,7 @@ RUN apt-get install -y
 # Create the volume
 VOLUME /image_data
 
-# Set envoronment variables
+# Set environment variables
 ENV IMAGE_SERVICE_CONFIG /app/docker.cfg
 ENV IMAGE_SERVICE_STORAGE_DIR /image_data
 
