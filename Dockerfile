@@ -14,7 +14,6 @@ ENV IMAGE_SERVICE_ENABLE_DEMO True
 ENV IMAGE_SERVICE_AUTH_TOKEN "*:token"
 ENV IMAGE_SERVICE_AUTH_BASIC "uploader:uploader"
 
-
 # Expose ports
 EXPOSE 5000
 
@@ -25,7 +24,7 @@ ADD ./requirements.txt /app
 # Set the default directory where CMD will execute
 WORKDIR /app
 
-
+VOLUME /image_data
 
 # Set the default command to execute
 CMD uwsgi --uwsgi-socket 0.0.0.0:5000 -w ${WSGI_MODULE:-wsgi:application}
