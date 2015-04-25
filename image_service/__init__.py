@@ -14,7 +14,7 @@ CONFIG_STORAGE_DIR = "STORAGE_DIRECTORY"
 
 app = Flask(__name__)
 app.config.from_pyfile('../default.cfg', silent=True)
-app.config.from_envvar('IMAGE_SERVICE_CONFIG', silent=True)
+app.config.from_envvar('IMAGE_SERVICE_CONFIG_FILE', silent=True)
 api = Api(app)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -42,16 +42,15 @@ def _serve_image(image_file, extension):
 
 
 def _check_auth_token(origin, token):
-    expected_origin, expected_token = app.config['AUTH_TOKEN']
-    return (expected_origin == "*" or expected_origin == origin) and expected_token == token
+    if 'AUTH_TOKEN' in app.config and app.config['AUTH_TOKEN'] != "":
+        expected_origin, expected_token = app.config['AUTH_TOKEN']
+        return (expected_origin == "*" or expected_origin == origin) and expected_token == token
 
 
 def _check_auth_basic(username, password):
-    """This function is called to check if a username /
-    password combination is valid.
-    """
-    correct_user, correct_pass = app.config['AUTH_BASIC']
-    return username == correct_user and password == correct_pass
+    if 'AUTH_BASIC' in app.config and app.config['AUTH_BASIC'] != "":
+        correct_user, correct_pass = app.config['AUTH_BASIC']
+        return username == correct_user and password == correct_pass
 
 
 @app.route('/')

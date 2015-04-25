@@ -70,7 +70,16 @@ class TestImageService(unittest.TestCase):
         image_service.storage()
         self.assertTrue(os.path.isdir(self.storage_directory))
 
+
     def test_invalid_auth_token(self):
+        image_name = "test_image"
+        image_extension = "png"
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+            response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), auth_token="invalid")
+            self.assertEqual(401, response.status_code)
+
+    def test_no_auth_token_set(self):
+        image_service.app.config['AUTH_TOKEN'] = ""
         image_name = "test_image"
         image_extension = "png"
         with open(self._test_image_path('png_image.png'), 'r') as png_image:
@@ -92,6 +101,15 @@ class TestImageService(unittest.TestCase):
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension),
                                         auth_basic="%s:%s" % (self.username, self.password))
             self.assertEqual(201, response.status_code)
+
+    def test_no_basic_auth_set(self):
+        image_name = "test_image"
+        image_extension = "png"
+        image_service.app.config['AUTH_BASIC'] = ""
+        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+            response = self._post_image(png_image, "%s.%s" % (image_name, image_extension),
+                                        auth_basic="%s:%s" % (self.username, self.password))
+            self.assertEqual(401, response.status_code)
 
     def test_invalid_origin(self):
         image_name = "test_image"
