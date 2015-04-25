@@ -1,9 +1,6 @@
 FROM python:2.7.9
 MAINTAINER Chris Weber
 
-# Install UWSGI
-RUN pip install uwsgi
-
 # Expose ports
 EXPOSE 5000
 
@@ -20,12 +17,16 @@ EXPOSE 5000
 
 # Copy the application folder inside the container
 ADD ./image_service /app/image_service
-ADD ./requirements.txt /app
+ADD ./requirements.txt /app/
+ADD ./default.cfg /app/
+ADD ./docker.cfg /app/
 
 # Set the default directory where CMD will execute
 WORKDIR /app
 
-
+# Install UWSGI
+RUN pip install uwsgi
+RUN pip install -r /app/requirements.txt
 
 # Set the default command to execute
-CMD uwsgi --uwsgi-socket 0.0.0.0:5000 -w ${WSGI_MODULE:-wsgi:application}
+CMD uwsgi --uwsgi-socket 0.0.0.0:5000 -w "image_service:app"
