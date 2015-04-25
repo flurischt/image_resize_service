@@ -7,24 +7,43 @@ Requirements available in pip:
  - flask
  
 for Pillow you'll need at least libjpeg: 
- - osx: brew install libpjeg
+
+ - brew install libpjeg #OS X
  - linux: use your packet manager
  - windows: use google, or just don't use windows ;)
 
 Installation (OSX)
 -----
-brew install libjpeg
-pip install -r requirements.txt
+
+	brew install libjpeg
+	pip install -r requirements.txt
 
  
 Usage (flask built in server)
 -----
- - python runserver.py
- - open http://127.0.0.1:5000/
+
+	python runserver.py
+	open http://127.0.0.1:5000/
  
  
-Dockers
+Docker
 -----
+To run the service on docker you can use the Dockerfile from this project. The service will run with uwsgi and will be linked into an nginx webserver:
+
+    # Create docker image for uwsgi image_service
+    docker build -t image_service .
+    
+    # create volume container for the image data
+    docker create --name="image_service_data" image_service /bin/true
+    
+    # run the image_service
+    docker run -d -t --volumes-from image_service_data --name="image_service" image_service 
+    
+    # Create docker image for the nginx webserver
+    docker build -t nginx ./nginx/
+    
+    # run nginx by linking it with the image_service
+    docker run -d -t -p 80:80 --link image_service:image_service --name="nginx" nginx
 
 
 API

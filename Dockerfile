@@ -11,7 +11,6 @@ ENV IMAGE_SERVICE_ENABLE_DEMO True
 ENV IMAGE_SERVICE_AUTH_TOKEN "*:token"
 ENV IMAGE_SERVICE_AUTH_BASIC "uploader:uploader"
 
-
 # Expose ports
 EXPOSE 5000
 
@@ -27,6 +26,8 @@ WORKDIR /app
 # Install UWSGI
 RUN pip install uwsgi
 RUN pip install -r /app/requirements.txt
+
+VOLUME /image_data
 
 # Set the default command to execute
 CMD uwsgi --uwsgi-socket 0.0.0.0:5000 -w "image_service:app"
