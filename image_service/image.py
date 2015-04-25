@@ -4,6 +4,8 @@ import os
 
 from PIL import Image, ImageOps
 
+
+
 # for now we only support the two formats ;)
 def pil_format_from_mime_type(mime_type):
     if mime_type == 'image/jpeg':

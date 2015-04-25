@@ -1,25 +1,8 @@
-############################################################
-# Dockerfile to build Python WSGI Application Containers
-# Based on Ubuntu
-############################################################
-
-# Set the base image to Ubuntu
-FROM ubuntu
-
-# File Author / Maintainer
+FROM python:2.7.9
 MAINTAINER Chris Weber
 
-# Add the application resources URL
-RUN echo "deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -sc) main universe" >> /etc/apt/sources.list
-
-# Update the sources list
-RUN apt-get update
-
-# Install basic applications
-RUN apt-get install -y libjpeg-dev zlib1g-dev python2.7 python-pip
-
-# Install Python and Basic Python Tools
-RUN apt-get install -y  
+# Install UWSGI
+RUN pip install uwsgi 
 
 # Create the volume
 VOLUME /image_data

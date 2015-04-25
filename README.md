@@ -25,30 +25,13 @@ Usage (flask built in server)
  
 Dockers
 -----
-Configuration for docker can be set in docker.cfg
 
-- Run:
-
-    ```
-    docker run -v /image_data --name image_data ubuntu
-    docker build -t docker_image_service <project_root>
-    docker run -d -P -i --volumes-from image_data --name image_service docker_image_service`
-    ```
-
-- get port for image service:
-
-    ```
-    docker port image_service
-    ```
-
-- open http://localhost:<port>/ (for boot2docker use the ip of the VM -> boot2docker ip)
 
 API
 -----
 Legend:
 ---
 
-\<project\> = project name added in config
 \<image_name\> = image name without extension
 \<extension\> = image file extension
 \<width\> = Desired image width
@@ -56,29 +39,29 @@ Legend:
 
 uploading images
 ---
-POST /images/\<project\>
+POST /images/
 
 Notice: enctype must be "multipart/form-data"
 
 Updating images
 ---
-PUT /images/\<project\>/\<image_name\>.\<extension\>
+PUT /images/\<image_name\>.\<extension\>
 
 Deleting images
 ---
-DELETE /images/\<project\>/\<image_name\>.\<extension\>
+DELETE /images/\<image_name\>.\<extension\>
 
 Orginal image
 ---
-GET /images/\<project\>/\<image_name\>.\<extension\>
+GET /images/\<image_name\>.\<extension\>
 
 fitting images
 ---
-GET /images/\<project\>/\<image_name\>@fit-\<width\>x\<height\>.\<extension\>
+GET /images/\<image_name\>@fit-\<width\>x\<height\>.\<extension\>
 
 cropping images
 ---
-GET /images/\<project\>/\<image_name\>@crop-\<with\>x\<height\>.\<extension\>
+GET /images/\<image_name\>@crop-\<with\>x\<height\>.\<extension\>
 
 
 TODO
