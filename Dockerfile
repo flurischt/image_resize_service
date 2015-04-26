@@ -2,16 +2,15 @@ FROM python:2.7.9
 MAINTAINER Chris Weber
 
 # Set environment variables
-ENV IMAGE_SERVICE_CONFIG "/app/docker.cfg"
-ENV IMAGE_SERVICE_STORAGE_DIR "/data/image_service
-ENV IMAGE_SERVICE_ENABLE_DEMO True
-ENV IMAGE_SERVICE_AUTH_TOKEN "*:token"
-ENV IMAGE_SERVICE_AUTH_BASIC "uploader:uploader"
+ENV STORAGE_DIR "/data/image_service
+ENV ENABLE_DEMO True
+ENV AUTH_TOKEN "*:token"
+ENV AUTH_BASIC "uploader:uploader"
 
-VOLUME $IMAGE_SERVICE_STORAGE_DIR
+VOLUME $STORAGE_DIR
 
 # Expose ports
-EXPOSE 80
+EXPOSE 8000
 
 # Copy the application folder inside the container
 ADD ./image_service /app/image_service
@@ -26,4 +25,4 @@ RUN pip install uwsgi
 RUN pip install -r /app/requirements.txt
 
 # Set the default command to execute
-CMD uwsgi --uwsgi-socket 0.0.0.0:80 -w "image_service:app"
+CMD uwsgi --uwsgi-socket 0.0.0.0:8000 -w "image_service:app"
