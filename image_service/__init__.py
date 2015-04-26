@@ -13,8 +13,7 @@ from storage import *
 CONFIG_STORAGE_DIR = "STORAGE_DIRECTORY"
 
 app = Flask(__name__)
-app.config.from_pyfile('../default.cfg', silent=True)
-app.config.from_envvar('IMAGE_SERVICE_CONFIG_FILE', silent=True)
+app.config.from_pyfile('../config.py', silent=True)
 api = Api(app)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
 

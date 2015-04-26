@@ -12,3 +12,12 @@ STORAGE_DIRECTORY = os.path.join(BASE_DIR, 'storage')
 # enables demo
 ENABLE_DEMO = True
 AUTH_TOKEN = ('*', 'demo') # Token Authentication (use * for wildcard)
+
+STORAGE_DIRECTORY = os.environ.get('IMAGE_SERVICE_STORAGE_DIR', os.path.join(BASE_DIR, 'storage'))
+ENABLE_DEMO = os.environ.get('IMAGE_SERVICE_ENABLE_DEMO', 'True') == 'True'
+
+AUTH_TOKEN = os.environ.get('IMAGE_SERVICE_AUTH_TOKEN','*:demo').split(":") \
+    if ":" in os.environ.get('IMAGE_SERVICE_AUTH_TOKEN','*:demo') else ""
+
+AUTH_BASIC = os.environ.get('IMAGE_SERVICE_AUTH_BASIC', 'uploader:uploader').split(":") \
+    if ":" in os.environ.get('IMAGE_SERVICE_AUTH_BASIC','uploader:uploader') else ""
