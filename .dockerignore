@@ -1,0 +1,8 @@
+nginx
+README.md
+runserver.py
+storage
+tests
+.DS_Store
+.pyc
+.git

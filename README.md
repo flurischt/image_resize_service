@@ -28,7 +28,7 @@ Usage (flask built in server)
  
 Docker
 -----
-To run the service on docker you can use the Dockerfile from this project. The service will run with uwsgi and will be linked into an nginx webserver:
+To run the service on docker you can use the Dockerfile from this project. This will create a container running a uwsgi service
 
     # Create docker image for uwsgi image_service
     docker build -t image_service .
@@ -39,12 +39,35 @@ To run the service on docker you can use the Dockerfile from this project. The s
     # run the image_service
     docker run -d -t --volumes-from image_service_data --name="image_service" image_service 
     
-    # Create docker image for the nginx webserver
-    docker build -t nginx ./nginx/
-    
-    # run nginx by linking it with the image_service
-    docker run -d -t -p 80:80 --link image_service:image_service --name="nginx" nginx
+You can now for example use a nginx Server...
 
+nginx.conf:
+
+    upstream image_service {
+        server image_service:8000;
+	}
+	server {
+	    listen 8000;
+	    server_name localhost;
+	    client_max_body_size 10M;
+	    location / {
+		     uwsgi_pass image_service;
+		     include uwsgi_params;
+        }
+    }
+    
+Dockerfile:
+    
+    FROM nginx
+    EXPOSE 80
+
+    RUN rm -f /etc/nginx/conf.d/default.conf
+    COPY ./nginx.conf /etc/nginx/conf.d/nginx.conf
+    
+Create nginx container:
+
+    docker build -t "nginx" .
+    docker run -d -t -p 80:80 --name="nginx" --link image_service:image_service nginx
 
 API
 -----
