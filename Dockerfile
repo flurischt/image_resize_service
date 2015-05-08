@@ -2,7 +2,7 @@ FROM python:2.7.9
 MAINTAINER Chris Weber
 
 # Set environment variables
-ENV STORAGE_DIR "/data/image_service/storage"
+ENV STORAGE_DIR "/var/lib/image_service/data"
 ENV ENABLE_DEMO True
 ENV AUTH_TOKEN "*:demo"
 ENV AUTH_BASIC "uploader:uploader"
@@ -21,4 +21,4 @@ VOLUME $STORAGE_DIR
 EXPOSE 8000
 
 WORKDIR /app
-ENTRYPOINT ["/usr/local/bin/uwsgi","--uwsgi-socket", "0.0.0.0:8000", "-w", "image_service:app"]
+ENTRYPOINT ["/usr/local/bin/uwsgi","--uwsgi-socket", "0.0.0.0:8000","--enable-threads", "--module","image_service:app"]
