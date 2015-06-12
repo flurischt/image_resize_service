@@ -7,26 +7,73 @@ Requirements available in pip:
  - flask
  
 for Pillow you'll need at least libjpeg: 
- - osx: brew install libpjeg
+
+ - brew install libpjeg #OS X
  - linux: use your packet manager
  - windows: use google, or just don't use windows ;)
 
 Installation (OSX)
 -----
-brew install libjpeg
-pip install -r requirements.txt
+
+	brew install libjpeg
+	pip install -r requirements.txt
+
  
 Usage (flask built in server)
 -----
- - python runserver.py
- - open http://127.0.0.1:5000/
+
+	python runserver.py
+	open http://127.0.0.1:5000/
+ 
+ 
+Docker
+-----
+To run the service on docker you can use the Dockerfile from this project. This will create a container running a uwsgi service
+
+    # Create docker image for uwsgi image_service
+    docker build -t image_service .
+    
+    # create volume container for the image data
+    docker create --name="image_service_data" image_service /bin/true
+    
+    # run the image_service
+    docker run -d -t --volumes-from image_service_data --name="image_service" image_service 
+    
+You can now for example use a nginx Server...
+
+nginx.conf:
+
+    upstream image_service {
+        server image_service:8000;
+	}
+	server {
+	    listen 8000;
+	    server_name localhost;
+	    client_max_body_size 10M;
+	    location / {
+		     uwsgi_pass image_service;
+		     include uwsgi_params;
+        }
+    }
+    
+Dockerfile:
+    
+    FROM nginx
+    EXPOSE 80
+
+    RUN rm -f /etc/nginx/conf.d/default.conf
+    COPY ./nginx.conf /etc/nginx/conf.d/nginx.conf
+    
+Create nginx container:
+
+    docker build -t "nginx" .
+    docker run -d -t -p 80:80 --name="nginx" --link image_service:image_service nginx
 
 API
 -----
 Legend:
 ---
 
-\<project\> = project name added in config
 \<image_name\> = image name without extension
 \<extension\> = image file extension
 \<width\> = Desired image width
@@ -34,29 +81,29 @@ Legend:
 
 uploading images
 ---
-POST /images/\<project\>
+POST /images/
 
 Notice: enctype must be "multipart/form-data"
 
 Updating images
 ---
-PUT /images/\<project\>/\<image_name\>.\<extension\>
+PUT /images/\<image_name\>.\<extension\>
 
 Deleting images
 ---
-DELETE /images/\<project\>/\<image_name\>.\<extension\>
+DELETE /images/\<image_name\>.\<extension\>
 
 Orginal image
 ---
-GET /images/\<project\>/\<image_name\>.\<extension\>
+GET /images/\<image_name\>.\<extension\>
 
 fitting images
 ---
-GET /images/\<project\>/\<image_name\>@fit-\<width\>x\<height\>.\<extension\>
+GET /images/\<image_name\>@fit-\<width\>x\<height\>.\<extension\>
 
 cropping images
 ---
-GET /images/\<project\>/\<image_name\>@crop-\<with\>x\<height\>.\<extension\>
+GET /images/\<image_name\>@crop-\<with\>x\<height\>.\<extension\>
 
 
 TODO
