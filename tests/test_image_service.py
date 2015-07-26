@@ -3,9 +3,9 @@ import os
 import shutil
 import json
 try:
-    from StringIO import StringIO
+    from StringIO import StringIO as BytesIO  # TODO awful
 except ImportError:
-    from io import StringIO
+    from io import BytesIO
 import base64
 
 from PIL import Image as PILImage
@@ -43,7 +43,7 @@ class TestImageService(unittest.TestCase):
         auth_token = self.auth_token if auth_token is None else auth_token
         authorization = 'Token ' + auth_token
         if auth_basic is not None:
-            authorization = 'Basic ' + base64.b64encode(auth_basic)
+            authorization = b'Basic ' + base64.b64encode(auth_basic.encode('ascii'))
         return self.app.post('/images/',
                              content_type='multipart/form-data',
                              headers={
@@ -69,6 +69,7 @@ class TestImageService(unittest.TestCase):
             resource_url = "/images/%s@%s-%dx%d.%s" % (image_name, mode, size[0], size[1], image_extension)
         return self.app.get(resource_url)
 
+
     def test_create_storage(self):
         image_service.storage()
         self.assertTrue(os.path.isdir(self.storage_directory))
@@ -77,7 +78,7 @@ class TestImageService(unittest.TestCase):
     def test_invalid_auth_token(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), auth_token="invalid")
             self.assertEqual(401, response.status_code)
 
@@ -85,14 +86,14 @@ class TestImageService(unittest.TestCase):
         image_service.app.config['AUTH_TOKEN'] = ""
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), auth_token="invalid")
             self.assertEqual(401, response.status_code)
 
     def test_invalid_username_or_password(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension),
                                         auth_basic="invalid:invalid")
             self.assertEqual(401, response.status_code)
@@ -100,7 +101,7 @@ class TestImageService(unittest.TestCase):
     def test_valid_username_or_password(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension),
                                         auth_basic="%s:%s" % (self.username, self.password))
             self.assertEqual(201, response.status_code)
@@ -109,7 +110,7 @@ class TestImageService(unittest.TestCase):
         image_name = "test_image"
         image_extension = "png"
         image_service.app.config['AUTH_BASIC'] = ""
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension),
                                         auth_basic="%s:%s" % (self.username, self.password))
             self.assertEqual(401, response.status_code)
@@ -117,7 +118,7 @@ class TestImageService(unittest.TestCase):
     def test_invalid_origin(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension), origin="http://invalid.com")
             self.assertEqual(401, response.status_code)
 
@@ -125,7 +126,7 @@ class TestImageService(unittest.TestCase):
         image_name = "test_image"
         image_extension = "png"
         image_service.app.config['AUTH_TOKEN'] = ('*', 'test')
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension),
                                         origin="http://whatever.com")
             self.assertEqual(201, response.status_code)
@@ -133,10 +134,10 @@ class TestImageService(unittest.TestCase):
     def test_post_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
-            json_payload = json.loads(response.data)
+            json_payload = json.loads(response.data.decode())
             self.assertEqual("/images/%s.%s" % (image_name, image_extension),
                              json_payload["url"])
             image = image_service.storage().get(image_name, image_extension)
@@ -146,54 +147,54 @@ class TestImageService(unittest.TestCase):
     def test_create_identical_name_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             self._post_image(png_image, "%s.%s" % (image_name, image_extension))
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._post_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
-            json_payload = json.loads(response.data)
+            json_payload = json.loads(response.data.decode())
             self.assertEqual("/images/%s-1.%s" % (image_name, image_extension),
                              json_payload["url"])
 
     def test_put_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
         self.assertEqual(201, response.status_code)
-        self.assertEqual('', response.data)
+        self.assertEqual(b'', response.data)
 
     def test_update_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             self._put_image(png_image, "%s.%s" % (image_name, image_extension))
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(200, response.status_code)
 
     def test_get_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
         response = self._get_image(image_name, image_extension)
         self.assertIsNotNone(response.data)
         self.assertEqual(200, response.status_code)
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             self.assertEqual(response.data, png_image.read())
 
     def test_get_manipulated_image(self):
         image_name = "test_image"
         image_extension = "png"
-        with open(self._test_image_path('png_image.png'), 'r') as png_image:
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
             response = self._put_image(png_image, "%s.%s" % (image_name, image_extension))
             self.assertEqual(201, response.status_code)
         response = self._get_image(image_name, image_extension, mode="crop", size=(200, 200))
         self.assertIsNotNone(response.data)
         self.assertEqual(200, response.status_code)
-        pil_image = PILImage.open(StringIO(response.data))
+        pil_image = PILImage.open(BytesIO(response.data))
         self.assertEqual((200, 200), pil_image.size)
 
     def test_get_manipulated_invalid_mode(self):
