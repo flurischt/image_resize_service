@@ -1,11 +1,8 @@
+import os
 import tempfile
 import mimetypes
-import os
 
 from PIL import Image, ImageOps
-
-
-
 
 
 # for now we only support the two formats ;)

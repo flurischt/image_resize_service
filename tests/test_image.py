@@ -9,7 +9,7 @@ from image_service import image
 class TestImage(unittest.TestCase):
     def _test_image_path(self, image_name):
         current_dir = os.path.dirname(os.path.realpath(__file__))
-        return os.path.join(current_dir, "test_images", image_name)
+        return os.path.join(current_dir, 'test_images', image_name)
 
     def test_fit_image(self):
         image_path = 'png_image.png'
