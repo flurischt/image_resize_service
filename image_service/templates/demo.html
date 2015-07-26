@@ -16,7 +16,7 @@
     Then just POST some images and GET them cropped or fitted. the syntax to use is directly visible in the
     URL:<br/><br/>
 
-    GET /img/[project]/image_name_without_extension@[fit|crop]-[width]x[height]>.extension
+    GET /images/image_name_without_extension@[fit|crop]-[width]x[height]>.extension
 </p>
 
 <h2>Dropzone Demo</h2>
@@ -32,9 +32,8 @@
 <script>
     // God i hate javascript, it's just so messy ;)
 
-
     new Dropzone("div.dropzone", {
-        url: "http://127.0.0.1:5000/images/demo_project/",
+        url: location.protocol + "//" + window.location.host + "/images/",
         acceptedMimeTypes: 'image/*',
         headers: {"Authorization": "Token demo"},
         success: function (file, responseText) {
