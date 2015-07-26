@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from flask import safe_join
 from werkzeug.exceptions import NotFound
 
-import image
+from image_service import image
 
 
 class FileSystemStorage(object):
