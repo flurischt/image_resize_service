@@ -13,7 +13,7 @@ class TestImage(unittest.TestCase):
 
     def test_fit_image(self):
         image_path = 'png_image.png'
-        with open(self._test_image_path('%s' % image_path), 'r') as png_file:
+        with open(self._test_image_path('%s' % image_path), 'rb') as png_file:
             pil_image = PILImage.open(png_file)
             self.assertEqual((640, 480), pil_image.size)
             png_file.seek(0)
@@ -22,7 +22,7 @@ class TestImage(unittest.TestCase):
 
     def test_crop_image(self):
         image_path = 'png_image.png'
-        with open(self._test_image_path('%s' % image_path), 'r') as png_file:
+        with open(self._test_image_path('%s' % image_path), 'rb') as png_file:
             pil_image = PILImage.open(png_file)
             self.assertEqual((640, 480), pil_image.size)
             png_file.seek(0)
