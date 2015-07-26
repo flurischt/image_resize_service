@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from flask import safe_join
 from werkzeug.exceptions import NotFound
 
-import image
+from image_service import image
 
 
 class FileSystemStorage(object):
@@ -44,7 +44,7 @@ class FileSystemStorage(object):
             self.save(name, extension, manipulated_image.read(), mode, size)
 
         if os.path.isfile(image_path):
-            return file(image_path, 'rb')
+            return open(image_path, 'rb')
         else:
             raise NotFound()
 
