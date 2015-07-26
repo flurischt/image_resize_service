@@ -1,36 +1,42 @@
 import mimetypes
+import werkzeug
 from functools import wraps
 
 from flask import Flask, send_file, request, Response, render_template
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
 from flask_cors import CORS
 from werkzeug.exceptions import Unauthorized
-import werkzeug
 
 from image_service.storage import *
 
 
-CONFIG_STORAGE_DIR = "STORAGE_DIRECTORY"
+CONFIG_STORAGE_DIR = 'STORAGE_DIRECTORY'
 
 app = Flask(__name__)
 app.config.from_pyfile('../config.py', silent=True)
 api = Api(app)
-cors = CORS(app, resources={r"/*": {"origins": "*"}})
+cors = CORS(app, resources={r'/*': {'origins': '*'}})
 
 _storage = None
 
 
 @app.after_request
 def add_header(response):
-    response.headers[
-        'Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Cache-Control, Authorization'
+    response.headers['Access-Control-Allow-Headers'] = ', '.join((
+            'Origin', 
+            'X-Requested-With', 
+            'Content-Type', 
+            'Accept', 
+            'Cache-Control', 
+            'Authorization'
+    ))
     return response
 
 
 def storage():
     """returns access to the storage (save_image(), get() and exists())"""
     global _storage
-    if _storage is None:
+    if not _storage:
         _storage = FileSystemStorage(app.config[CONFIG_STORAGE_DIR])
     return _storage
 
@@ -41,13 +47,13 @@ def _serve_image(image_file, extension):
 
 
 def _check_auth_token(origin, token):
-    if 'AUTH_TOKEN' in app.config and app.config['AUTH_TOKEN'] != "":
+    if 'AUTH_TOKEN' in app.config and app.config['AUTH_TOKEN'] != '':
         expected_origin, expected_token = app.config['AUTH_TOKEN']
-        return (expected_origin == "*" or expected_origin == origin) and expected_token == token
+        return (expected_origin == '*' or expected_origin == origin) and expected_token == token
 
 
 def _check_auth_basic(username, password):
-    if 'AUTH_BASIC' in app.config and app.config['AUTH_BASIC'] != "":
+    if 'AUTH_BASIC' in app.config and app.config['AUTH_BASIC'] != '':
         correct_user, correct_pass = app.config['AUTH_BASIC']
         return username == correct_user and password == correct_pass
 
@@ -68,7 +74,7 @@ def requires_auth(f):
         if auth_header is not None:
             if auth_header.startswith('Token'):
                 # get the origin header
-                key, token = auth_header.split(" ")
+                key, token = auth_header.split(' ')
                 if _check_auth_token(origin, token):
                     return f(*args, **kwargs)
             if auth_header.startswith('Basic'):
@@ -76,7 +82,6 @@ def requires_auth(f):
                 if _check_auth_basic(auth.username, auth.password):
                     return f(*args, **kwargs)
         raise Unauthorized()
-
     return decorated
 
 
@@ -120,7 +125,7 @@ class UploadAPI(Resource):
         filename = storage().safe_name(filename, extension)
         storage().save(filename, extension, uploaded_file.read())
         url = api.url_for(ImageAPI, name=filename, extension=extension)
-        return {"url": url}, 201
+        return {'url': url}, 201
 
 
 class ImageAPI(Resource):
