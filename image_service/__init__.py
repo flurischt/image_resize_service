@@ -7,7 +7,7 @@ from flask_cors import CORS
 from werkzeug.exceptions import Unauthorized
 import werkzeug
 
-from storage import *
+from image_service.storage import *
 
 
 CONFIG_STORAGE_DIR = "STORAGE_DIRECTORY"
