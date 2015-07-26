@@ -2,7 +2,10 @@ import unittest
 import os
 import shutil
 import json
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import base64
 
 from PIL import Image as PILImage
