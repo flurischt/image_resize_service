@@ -24,8 +24,8 @@ Usage (flask built in server)
 
 	python runserver.py
 	open http://127.0.0.1:5000/
- 
- 
+
+
 Docker
 -----
 To run the service on docker you can use the Dockerfile from this project. This will create a container running a uwsgi service
