@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="static/css/dropzone.css"/>
 </head>
 <body>
-<h1>Image Service</h1>
+<h1>Flask Image Service - FIMS</h1>
 
 <p>
     A flask based web service to resize images. Specify a project in your *.cfg file to use as a namespace for your
@@ -16,10 +16,12 @@
     Then just POST some images and GET them cropped or fitted. the syntax to use is directly visible in the
     URL:<br/><br/>
 
+    <em>
     GET /images/image_name_without_extension@[fit|crop]-[width]x[height]>.extension
+    </em>
 </p>
 
-<h2>Dropzone Demo</h2>
+<h2>Drag and Drop Demo</h2>
 
 
 <div class="dropzone" style="height:100px;width:600px"></div>
@@ -31,7 +33,6 @@
 
 <script>
     // God i hate javascript, it's just so messy ;)
-
     new Dropzone("div.dropzone", {
         url: location.protocol + "//" + window.location.host + "/images/",
         acceptedMimeTypes: 'image/*',

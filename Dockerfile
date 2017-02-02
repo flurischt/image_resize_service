@@ -1,5 +1,5 @@
-FROM python:2.7.9
-MAINTAINER Chris Weber
+FROM python:3.6.0
+MAINTAINER David Portella
 
 # Set environment variables
 ENV STORAGE_DIR "/var/lib/image_service/data"

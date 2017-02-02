@@ -3,7 +3,7 @@ import werkzeug
 from functools import wraps
 
 from flask import Flask, send_file, request, Response, render_template
-from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
+from flask_restful import Api, Resource, reqparse, fields, marshal_with
 from flask_cors import CORS
 from werkzeug.exceptions import Unauthorized
 
