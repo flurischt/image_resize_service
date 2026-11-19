@@ -28,13 +28,13 @@ def binary_image(pil_image, format):
 
 def fit_image(image, size):
     pil_image = Image.open(image)
-    pil_image.thumbnail(size, Image.ANTIALIAS)
+    pil_image.thumbnail(size, Image.Resampling.LANCZOS)
     pil_format = pil_format_from_file_extension(os.path.splitext(image.name)[1])
     return binary_image(pil_image, pil_format)
 
 
 def crop_image(image, size):
     pil_image = Image.open(image)
-    cropped_pil_image = ImageOps.fit(pil_image, size, Image.ANTIALIAS, 0.0, (0.5, 0.5))
+    cropped_pil_image = ImageOps.fit(pil_image, size, Image.Resampling.LANCZOS, 0.0, (0.5, 0.5))
     pil_format = pil_format_from_file_extension(os.path.splitext(image.name)[1])
     return binary_image(cropped_pil_image, pil_format)

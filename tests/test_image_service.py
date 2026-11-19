@@ -2,10 +2,7 @@ import unittest
 import os
 import shutil
 import json
-try:
-    from StringIO import StringIO as BytesIO  # TODO awful
-except ImportError:
-    from io import BytesIO
+from io import BytesIO
 import base64
 
 from PIL import Image as PILImage
@@ -43,7 +40,7 @@ class TestImageService(unittest.TestCase):
         auth_token = self.auth_token if not auth_token else auth_token
         authorization = 'Token ' + auth_token
         if auth_basic is not None:
-            authorization = b'Basic ' + base64.b64encode(auth_basic.encode('ascii'))
+            authorization = 'Basic ' + base64.b64encode(auth_basic.encode('ascii')).decode('ascii')
         return self.app.post('/images/',
                              content_type='multipart/form-data',
                              headers={

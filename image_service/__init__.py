@@ -43,7 +43,7 @@ def storage():
 
 def _serve_image(image_file, extension):
     mime_type = mimetypes.types_map['.%s' % extension.lower()]
-    return send_file(image_file, mimetype=mime_type, add_etags=False)
+    return send_file(image_file, mimetype=mime_type, etag=False)
 
 
 def _check_auth_token(origin, token):
