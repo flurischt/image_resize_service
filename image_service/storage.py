@@ -2,6 +2,7 @@ import os
 import os.path as op
 import re
 import shutil
+import tempfile
 
 from werkzeug.security import safe_join
 from werkzeug.utils import secure_filename
@@ -18,8 +19,7 @@ class FileSystemStorage(object):
     def __init__(self, image_dir, max_dimension=4096):
         self._image_dir = op.realpath(image_dir)
         self._max_dimension = max_dimension
-        if not op.isdir(self._image_dir):
-            os.makedirs(self._image_dir)
+        os.makedirs(self._image_dir, exist_ok=True)
 
     def _validate_name_extension(self, name, extension):
         if not isinstance(name, str) or not isinstance(extension, str):
@@ -59,19 +59,59 @@ class FileSystemStorage(object):
             if width < 1 or height < 1 or width > self._max_dimension or height > self._max_dimension:
                 raise ValueError('width and height must be between 1 and %d' % self._max_dimension)
 
+    def _write_temp_file(self, directory, binary_image_data):
+        os.makedirs(directory, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=directory, prefix='.tmp-')
+        try:
+            with os.fdopen(fd, 'wb') as tmp_file:
+                tmp_file.write(binary_image_data)
+            return tmp_path
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
     def exists(self, name, extension, mode=None, size=None):
         return op.isfile(self._path_to_image(name, extension, mode, size))
 
     def save(self, name, extension, binary_image_data, mode=None, size=None):
         self._check_mode_size(mode, size)
-        if self.exists(name, extension, mode, size):
-            self.delete(name, extension, mode, size)
         image_path = self._path_to_image(name, extension, mode, size)
         directory = op.dirname(image_path)
-        if not op.isdir(directory):
-            os.makedirs(directory)
-        with open(image_path, 'wb') as f:
-            f.write(binary_image_data)
+        tmp_path = self._write_temp_file(directory, binary_image_data)
+        try:
+            os.replace(tmp_path, image_path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+        if mode is None and size is None:
+            manipulated_dir = self._manipulated_directory(name, extension)
+            if op.isdir(manipulated_dir):
+                shutil.rmtree(manipulated_dir, ignore_errors=True)
+
+    def save_unique(self, name, extension, binary_image_data):
+        name, extension = self._validate_name_extension(name, extension)
+        tmp_path = self._write_temp_file(self._image_dir, binary_image_data)
+        try:
+            counter = 0
+            while True:
+                candidate = name if counter == 0 else '%s-%d' % (name, counter)
+                target_path = self._path_to_image(candidate, extension)
+                try:
+                    os.link(tmp_path, target_path)
+                    return candidate
+                except FileExistsError:
+                    counter += 1
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def get(self, name, extension, mode=None, size=None):
         self._check_mode_size(mode, size)
@@ -100,7 +140,7 @@ class FileSystemStorage(object):
         if mode is None and size is None:
             manipulated_dir = self._manipulated_directory(name, extension)
             if op.isdir(manipulated_dir):
-                shutil.rmtree(manipulated_dir)
+                shutil.rmtree(manipulated_dir, ignore_errors=True)
 
     def safe_name(self, name, extension):
         name, extension = self._validate_name_extension(name, extension)
