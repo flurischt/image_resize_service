@@ -17,9 +17,14 @@ LABEL org.opencontainers.image.authors="Flurin Ineichen"
 ENV PATH="/opt/venv/bin:$PATH"
 ENV STORAGE_DIR="/var/lib/image_service/data"
 
+RUN groupadd --system image_service && \
+    useradd --system --gid image_service --home-dir /app --shell /usr/sbin/nologin image_service && \
+    mkdir -p "$STORAGE_DIR" && \
+    chown -R image_service:image_service /var/lib/image_service
+
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy the application folder inside the container
+# Copy the application folder inside the container (read-only for runtime user)
 COPY ./image_service /app/image_service
 COPY ./config.py /app/
 
@@ -29,4 +34,5 @@ VOLUME $STORAGE_DIR
 EXPOSE 8000
 
 WORKDIR /app
+USER image_service
 ENTRYPOINT ["/opt/venv/bin/uwsgi", "--uwsgi-socket", "0.0.0.0:8000", "--enable-threads", "--module", "image_service:app"]
