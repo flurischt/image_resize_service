@@ -5,7 +5,7 @@ from functools import wraps
 
 from flask import Flask, send_file, request, Response, render_template
 from flask_restful import Api, Resource, reqparse, fields, marshal_with
-from flask_cors import CORS
+from flask_cors.core import get_cors_options, set_cors_headers
 from PIL import Image as PILImage
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 from werkzeug.utils import secure_filename
@@ -15,27 +15,53 @@ from image_service.storage import FileSystemStorage
 
 
 CONFIG_STORAGE_DIR = 'STORAGE_DIRECTORY'
+CORS_ALLOW_HEADERS = [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Cache-Control',
+    'Authorization',
+]
 
 app = Flask(__name__)
 app.config.from_pyfile('../config.py', silent=True)
 PILImage.MAX_IMAGE_PIXELS = app.config.get('MAX_IMAGE_PIXELS', 25_000_000)
 api = Api(app)
-cors = CORS(app, resources={r'/*': {'origins': '*'}})
 
 _storage = None
 _storage_lock = threading.Lock()
 
 
 @app.after_request
-def add_header(response):
-    response.headers['Access-Control-Allow-Headers'] = ', '.join((
-            'Origin', 
-            'X-Requested-With', 
-            'Content-Type', 
-            'Accept', 
-            'Cache-Control', 
-            'Authorization'
-    ))
+def apply_scoped_cors(response):
+    if not request.path.startswith('/images/'):
+        return response
+    req_method = request.method.upper()
+    if req_method == 'OPTIONS':
+        target_method = request.headers.get('Access-Control-Request-Method', '').upper()
+    else:
+        target_method = req_method
+
+    if target_method in ('GET', 'HEAD'):
+        origins = app.config.get('CORS_READ_ORIGINS', '*')
+        options = get_cors_options(app, {
+            'origins': origins,
+            'methods': ['GET', 'HEAD'],
+            'allow_headers': CORS_ALLOW_HEADERS,
+            'send_wildcard': origins == '*',
+        })
+    else:
+        origins = app.config.get('CORS_ORIGINS', [])
+        if not origins:
+            return response
+        options = get_cors_options(app, {
+            'origins': origins,
+            'methods': ['POST', 'PUT', 'DELETE'],
+            'allow_headers': CORS_ALLOW_HEADERS,
+            'send_wildcard': origins == '*',
+        })
+    set_cors_headers(response, options)
     return response
 
 
