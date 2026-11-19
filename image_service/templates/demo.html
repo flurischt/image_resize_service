@@ -46,28 +46,48 @@
             }
         },
         success: function (file, responseText) {
-            var extension = responseText.url.split('.').pop();
-            var fileName = responseText.url.split('.').shift();
+            if (!responseText || typeof responseText.url !== "string" || responseText.url.indexOf("/images/") !== 0) {
+                return;
+            }
+            var dotIdx = responseText.url.lastIndexOf(".");
+            if (dotIdx === -1) {
+                return;
+            }
+            var fileName = responseText.url.slice(0, dotIdx);
+            var extension = responseText.url.slice(dotIdx + 1);
 
             var sizes = [[300, 300], [200, 200], [100, 100]];
-            resultZone = $("#Result");
-            image_div = $('<div class="image_box" ></div>');
+            var resultZone = $("#Result");
+            var imageDiv = $("<div>").addClass("image_box");
 
-            image_div.append('<p><a href="' + fileName + '.' + extension + '" target="_blank">Original</a></p>');
-            for (i in sizes) {
-                size = sizes[i];
-                crop_image_src = fileName + '@crop-' + size[0] + 'x' + size[1] + '.' + extension;
-                fit_image_src = fileName + '@fit-' + size[0] + 'x' + size[1] + '.' + extension;
+            var originalSrc = fileName + "." + extension;
+            var originalLink = $("<a>")
+                .attr({href: originalSrc, target: "_blank", rel: "noopener noreferrer"})
+                .text("Original");
+            imageDiv.append($("<p>").append(originalLink));
 
-                image_div.append('<img src="' + crop_image_src + '"/>');
-                image_div.append('<img src="' + fit_image_src + '"/>');
-                image_div.append('<p><a href="' + crop_image_src + '" target="_blank">' + crop_image_src + '</a></p>');
-                image_div.append('<p><a href="' + fit_image_src + '" target="_blank">' + fit_image_src + '</a></p>');
+            for (var i = 0; i < sizes.length; i++) {
+                var size = sizes[i];
+                var cropImageSrc = fileName + "@crop-" + size[0] + "x" + size[1] + "." + extension;
+                var fitImageSrc = fileName + "@fit-" + size[0] + "x" + size[1] + "." + extension;
+
+                imageDiv.append($("<img>").attr("src", cropImageSrc));
+                imageDiv.append($("<img>").attr("src", fitImageSrc));
+                imageDiv.append($("<p>").append(
+                    $("<a>")
+                        .attr({href: cropImageSrc, target: "_blank", rel: "noopener noreferrer"})
+                        .text(cropImageSrc)
+                ));
+                imageDiv.append($("<p>").append(
+                    $("<a>")
+                        .attr({href: fitImageSrc, target: "_blank", rel: "noopener noreferrer"})
+                        .text(fitImageSrc)
+                ));
             }
-            resultZone.append(image_div);
+            resultZone.append(imageDiv);
 
             $("html, body").animate({scrollTop: resultZone.offset().top}, 600);
-            this.removeFile(file)
+            this.removeFile(file);
         }
     });
 </script>
