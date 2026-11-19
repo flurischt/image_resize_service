@@ -47,7 +47,13 @@ def _serve_image(image_file, extension):
     if mime_type is None:
         image_file.close()
         raise NotFound()
-    return send_file(image_file, mimetype=mime_type, etag=False)
+    response = send_file(image_file, mimetype=mime_type, etag=False)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
+    )
+    response.headers['Content-Disposition'] = 'inline'
+    return response
 
 
 def _validate_upload(binary_data, extension):
