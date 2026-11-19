@@ -463,3 +463,12 @@ class TestImageService(unittest.TestCase):
         resp = self._get_image('ghost_image', 'png', mode='crop', size=(100, 100))
         self.assertEqual(404, resp.status_code)
         self.assertEqual([], os.listdir(self.storage_directory))
+
+    def test_invalid_image_names_handled_without_500(self):
+        for bad_name in ('_leading', 'has space', '!!!', 'foo..bar'):
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                put_resp = self._put_image(png_image, '%s.png' % bad_name)
+                self.assertEqual(400, put_resp.status_code, msg='PUT failed for %r' % bad_name)
+            self.assertEqual(404, self._get_image(bad_name, 'png').status_code)
+            self.assertEqual(404, self._get_image(bad_name, 'png', mode='crop', size=(100, 100)).status_code)
+            self.assertEqual(404, self._delete_image(bad_name, 'png').status_code)

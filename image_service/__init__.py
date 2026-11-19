@@ -158,8 +158,11 @@ class UploadAPI(Resource):
         extension = extension.lower()
         data = uploaded_file.read()
         _validate_upload(data, extension)
-        filename = storage().safe_name(filename, extension)
-        storage().save(filename, extension, data)
+        try:
+            filename = storage().safe_name(filename, extension)
+            storage().save(filename, extension, data)
+        except ValueError as exc:
+            raise BadRequest(str(exc))
         url = api.url_for(ImageAPI, name=filename, extension=extension)
         return {'url': url}, 201
 
@@ -182,8 +185,11 @@ class ImageAPI(Resource):
         extension = extension.lower()
         data = uploaded_file.read()
         _validate_upload(data, extension)
-        created = not storage().exists(name, extension)
-        storage().save(name, extension, data)
+        try:
+            created = not storage().exists(name, extension)
+            storage().save(name, extension, data)
+        except ValueError as exc:
+            raise BadRequest(str(exc))
         return Response('', 201 if created else 200)
 
     @requires_auth
@@ -191,16 +197,22 @@ class ImageAPI(Resource):
         extension = extension.lower()
         if image_utils.mime_type_from_extension(extension) is None:
             raise NotFound()
-        if storage().exists(name, extension):
-            storage().delete(name, extension)
-            return Response('', 200)
+        try:
+            if storage().exists(name, extension):
+                storage().delete(name, extension)
+                return Response('', 200)
+        except ValueError:
+            raise NotFound()
         raise NotFound()
 
     def get(self, name, extension):
         extension = extension.lower()
         if image_utils.mime_type_from_extension(extension) is None:
             raise NotFound()
-        image = storage().get(name, extension)
+        try:
+            image = storage().get(name, extension)
+        except ValueError:
+            raise NotFound()
         return _serve_image(image, extension)
 
 

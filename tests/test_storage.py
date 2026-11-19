@@ -218,3 +218,11 @@ class TestFileSystemStorage(unittest.TestCase):
         self.assertRaises(NotFound, self.storage.get, 'nonexistent', 'png', 'crop', (100, 100))
         self.assertRaises(NotFound, self.storage.delete, 'nonexistent', 'png', 'crop', (100, 100))
         self.assertEqual([], os.listdir(self.storage_dir))
+
+    def test_invalid_and_traversal_names_rejected(self):
+        invalid_names = ['', '!!!', '..', '../escape', 'a/b', '_prefixed', 'my image', 'foo..bar', 'trailing.']
+        for bad_name in invalid_names:
+            self.assertRaises(ValueError, self.storage.exists, bad_name, 'png')
+            self.assertRaises(ValueError, self.storage.get, bad_name, 'png')
+            self.assertRaises(ValueError, self.storage.save, bad_name, 'png', b'data')
+            self.assertRaises(ValueError, self.storage.delete, bad_name, 'png')
