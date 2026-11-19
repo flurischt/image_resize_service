@@ -211,3 +211,10 @@ class TestFileSystemStorage(unittest.TestCase):
         self.assertRaises(ValueError, self.storage.get, 'some', 'png', 'crop', (-10, 200))
         self.assertRaises(ValueError, self.storage.get, 'some', 'png', 'fit', (5000, 200))
         self.assertRaises(ValueError, self.storage.get, 'some', 'png', 'fit', (200, 5000))
+
+    def test_missing_manipulated_get_does_not_create_directories(self):
+        import os
+        self.assertFalse(self.storage.exists('nonexistent', 'png', 'crop', (100, 100)))
+        self.assertRaises(NotFound, self.storage.get, 'nonexistent', 'png', 'crop', (100, 100))
+        self.assertRaises(NotFound, self.storage.delete, 'nonexistent', 'png', 'crop', (100, 100))
+        self.assertEqual([], os.listdir(self.storage_dir))

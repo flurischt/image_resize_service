@@ -458,3 +458,8 @@ class TestImageService(unittest.TestCase):
                 self.assertEqual(400, resp.status_code)
         finally:
             image_service.app.config['MAX_IMAGE_PIXELS'] = original
+
+    def test_unauthenticated_missing_resize_creates_no_directories(self):
+        resp = self._get_image('ghost_image', 'png', mode='crop', size=(100, 100))
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual([], os.listdir(self.storage_directory))

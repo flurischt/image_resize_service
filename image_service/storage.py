@@ -38,19 +38,24 @@ class FileSystemStorage(object):
         self._check_mode_size(mode, size)
         if self.exists(name, extension, mode, size):
             self.delete(name, extension, mode, size)
-        with open(self._path_to_image(name, extension, mode, size), 'wb') as f:
+        image_path = self._path_to_image(name, extension, mode, size)
+        directory = op.dirname(image_path)
+        if not op.isdir(directory):
+            os.makedirs(directory)
+        with open(image_path, 'wb') as f:
             f.write(binary_image_data)
 
     def get(self, name, extension, mode=None, size=None):
         self._check_mode_size(mode, size)
         image_path = self._path_to_image(name, extension, mode, size)
         if mode and not op.isfile(image_path):
-            original_image = self.get(name, extension)
-            if mode == 'crop':
-                manipulated_image = image.crop_image(original_image, size)
-            elif mode == 'fit':
-                manipulated_image = image.fit_image(original_image, size)
-            self.save(name, extension, manipulated_image.read(), mode, size)
+            with self.get(name, extension) as original_image:
+                if mode == 'crop':
+                    manipulated_image = image.crop_image(original_image, size)
+                elif mode == 'fit':
+                    manipulated_image = image.fit_image(original_image, size)
+            with manipulated_image:
+                self.save(name, extension, manipulated_image.read(), mode, size)
 
         if op.isfile(image_path):
             return open(image_path, 'rb')
@@ -87,6 +92,4 @@ class FileSystemStorage(object):
         else:
             filename = secure_filename(name + '.' + extension)
             directory = self._image_dir
-        if not op.isdir(directory):
-            os.makedirs(directory)
         return safe_join(directory, filename)
