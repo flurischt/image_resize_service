@@ -289,3 +289,31 @@ class TestImageService(unittest.TestCase):
                                     })
         self.assertEqual(200, response.status_code)
         self.assertIn('Authorization', response.headers.get('Access-Control-Allow-Headers', ''))
+
+    def _delete_image(self, image_name, image_extension, origin=None, auth_token=None):
+        origin = self.origin if origin is None else origin
+        auth_token = self.auth_token if auth_token is None else auth_token
+        return self.app.delete('/images/%s.%s' % (image_name, image_extension),
+                               headers={
+                                   'Authorization': 'Token ' + auth_token,
+                                   'Origin': origin
+                               })
+
+    def test_delete_image(self):
+        image_name = 'test_image'
+        image_extension = 'png'
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self.assertEqual(201, self._put_image(png_image, '%s.%s' % (image_name, image_extension)).status_code)
+        self.assertEqual(200, self._get_image(image_name, image_extension, mode='crop', size=(100, 100)).status_code)
+        delete_resp = self._delete_image(image_name, image_extension)
+        self.assertEqual(200, delete_resp.status_code)
+        self.assertEqual(404, self._get_image(image_name, image_extension).status_code)
+        self.assertEqual(404, self._get_image(image_name, image_extension, mode='crop', size=(100, 100)).status_code)
+
+    def test_delete_nonexistent_image_returns_404(self):
+        delete_resp = self._delete_image('does_not_exist', 'png')
+        self.assertEqual(404, delete_resp.status_code)
+
+    def test_delete_image_requires_auth(self):
+        response = self.app.delete('/images/test_image.png')
+        self.assertEqual(401, response.status_code)

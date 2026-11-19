@@ -5,9 +5,10 @@ from functools import wraps
 from flask import Flask, send_file, request, Response, render_template
 from flask_restful import Api, Resource, reqparse, fields, marshal_with
 from flask_cors import CORS
-from werkzeug.exceptions import Unauthorized
+from werkzeug.exceptions import NotFound, Unauthorized
+from werkzeug.utils import secure_filename
 
-from image_service.storage import *
+from image_service.storage import FileSystemStorage
 
 
 CONFIG_STORAGE_DIR = 'STORAGE_DIRECTORY'
@@ -85,19 +86,6 @@ def requires_auth(f):
     return decorated
 
 
-def _upload_json_response(success, **kwargs):
-    res_dict = dict(status='ok' if success else 'fail')
-    res_dict.update(kwargs)
-    code = 201 if success else 500
-    return res_dict, code
-
-
-def serve_image(project_name, name, extension, mode=None, size=None):
-    if project_name not in app.config['PROJECTS']:
-        raise NotFound()
-    return _serve_image(project_name, name, extension, mode, size)
-
-
 class UploadResponse:
     resource_fields = {
         'url': fields.String
@@ -148,9 +136,9 @@ class ImageAPI(Resource):
         return Response('', 201 if created else 200)
 
     @requires_auth
-    def delete(self, project, name, extension):
-        if storage().exists(project, name, extension):
-            storage().delete(project, name, extension)
+    def delete(self, name, extension):
+        if storage().exists(name, extension):
+            storage().delete(name, extension)
             return Response('', 200)
         raise NotFound()
 
