@@ -1,11 +1,11 @@
 <html>
 <head>
     <title>Image Service Demo</title>
-    <script src="/static/js/dropzone.js"></script>
+    <script src="/static/js/dropzone-min.js"></script>
     <script src="/static/js/dropzone.config.js"></script>
-    <script src="/static/js/jquery-2.1.3.min.js"></script>
-    <link rel="stylesheet" href="static/css/dropzone-basic.css"/>
-    <link rel="stylesheet" href="static/css/dropzone.css"/>
+    <script src="/static/js/jquery-4.1.0.min.js"></script>
+    <link rel="stylesheet" href="/static/css/dropzone-basic.css"/>
+    <link rel="stylesheet" href="/static/css/dropzone.css"/>
 </head>
 <body>
 <h1>Image Service</h1>
@@ -34,7 +34,7 @@
 
     new Dropzone("div.dropzone", {
         url: location.protocol + "//" + window.location.host + "/images/",
-        acceptedMimeTypes: 'image/*',
+        acceptedFiles: 'image/*',
         headers: {"Authorization": "Token demo"},
         success: function (file, responseText) {
             var extension = responseText.url.split('.').pop();
