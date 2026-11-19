@@ -25,3 +25,18 @@ if ':' in _raw_auth_basic:
     AUTH_BASIC = (_user, _password) if _user and _password else ""
 else:
     AUTH_BASIC = ""
+
+# Resource limits (DoS protection)
+MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))
+MAX_IMAGE_PIXELS = int(os.environ.get('MAX_IMAGE_PIXELS', 25_000_000))
+MAX_IMAGE_DIMENSION = int(os.environ.get('MAX_IMAGE_DIMENSION', 4096))
+
+_raw_allowed_dims = os.environ.get('ALLOWED_DIMENSIONS', '').strip()
+if _raw_allowed_dims:
+    ALLOWED_DIMENSIONS = frozenset(
+        tuple(int(part) for part in item.strip().lower().split('x', 1))
+        for item in _raw_allowed_dims.split(',')
+        if 'x' in item.lower()
+    )
+else:
+    ALLOWED_DIMENSIONS = None

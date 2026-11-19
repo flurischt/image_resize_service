@@ -37,7 +37,7 @@ def pil_format_from_file_extension(file_extension):
     return pil_format_from_mime_type(mime_type)
 
 
-def validate_image_data(binary_data, extension):
+def validate_image_data(binary_data, extension, max_pixels=None):
     expected_format = pil_format_from_file_extension(extension)
     if expected_format is None:
         raise ValueError('Unsupported image extension')
@@ -47,6 +47,8 @@ def validate_image_data(binary_data, extension):
         with Image.open(BytesIO(binary_data), formats=ALLOWED_PIL_FORMATS) as pil_image:
             if pil_image.format != expected_format:
                 raise ValueError('Image content does not match file extension')
+            if max_pixels is not None and (pil_image.width * pil_image.height) > max_pixels:
+                raise ValueError('Image dimensions exceed maximum allowed pixel count')
             pil_image.verify()
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError) as exc:
         raise ValueError('Invalid or unsupported image content') from exc

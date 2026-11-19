@@ -5,6 +5,7 @@ from functools import wraps
 from flask import Flask, send_file, request, Response, render_template
 from flask_restful import Api, Resource, reqparse, fields, marshal_with
 from flask_cors import CORS
+from PIL import Image as PILImage
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 from werkzeug.utils import secure_filename
 
@@ -16,6 +17,7 @@ CONFIG_STORAGE_DIR = 'STORAGE_DIRECTORY'
 
 app = Flask(__name__)
 app.config.from_pyfile('../config.py', silent=True)
+PILImage.MAX_IMAGE_PIXELS = app.config.get('MAX_IMAGE_PIXELS', 25_000_000)
 api = Api(app)
 cors = CORS(app, resources={r'/*': {'origins': '*'}})
 
@@ -39,7 +41,10 @@ def storage():
     """returns access to the storage (save_image(), get() and exists())"""
     global _storage
     if not _storage:
-        _storage = FileSystemStorage(app.config[CONFIG_STORAGE_DIR])
+        _storage = FileSystemStorage(
+            app.config[CONFIG_STORAGE_DIR],
+            max_dimension=app.config.get('MAX_IMAGE_DIMENSION', 4096),
+        )
     return _storage
 
 
@@ -59,7 +64,11 @@ def _serve_image(image_file, extension):
 
 def _validate_upload(binary_data, extension):
     try:
-        image_utils.validate_image_data(binary_data, extension)
+        image_utils.validate_image_data(
+            binary_data,
+            extension,
+            max_pixels=app.config.get('MAX_IMAGE_PIXELS', 25_000_000),
+        )
     except ValueError as exc:
         raise BadRequest(str(exc))
 
@@ -201,7 +210,17 @@ class ManipulatedImageAPI(Resource):
         if image_utils.mime_type_from_extension(extension) is None:
             raise NotFound()
         try:
-            image = storage().get(name, extension, mode, (int(width), int(height)))
+            size = (int(width), int(height))
+        except ValueError:
+            raise NotFound()
+        max_dim = app.config.get('MAX_IMAGE_DIMENSION', 4096)
+        if size[0] < 1 or size[1] < 1 or size[0] > max_dim or size[1] > max_dim:
+            raise BadRequest('Requested dimensions must be between 1 and %d' % max_dim)
+        allowed_dims = app.config.get('ALLOWED_DIMENSIONS')
+        if allowed_dims is not None and size not in allowed_dims:
+            raise BadRequest('Requested dimensions are not allowed')
+        try:
+            image = storage().get(name, extension, mode, size)
         except ValueError:
             raise NotFound()
         return _serve_image(image, extension)
