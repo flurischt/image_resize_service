@@ -343,3 +343,16 @@ class TestImageService(unittest.TestCase):
         self.assertEqual(404, self._get_image('evil', 'html').status_code)
         self.assertEqual(404, self._get_image('evil', 'unknownext').status_code)
         self.assertEqual(404, self._get_image('evil', 'svg', mode='crop', size=(50, 50)).status_code)
+
+    def test_served_image_security_headers(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self.assertEqual(201, self._put_image(png_image, 'headers_test.png').status_code)
+        for resp in (
+            self._get_image('headers_test', 'png'),
+            self._get_image('headers_test', 'png', mode='fit', size=(100, 100)),
+        ):
+            self.assertEqual(200, resp.status_code)
+            self.assertEqual('nosniff', resp.headers.get('X-Content-Type-Options'))
+            self.assertIn("default-src 'none'", resp.headers.get('Content-Security-Policy', ''))
+            self.assertIn('sandbox', resp.headers.get('Content-Security-Policy', ''))
+            self.assertEqual('inline', resp.headers.get('Content-Disposition'))
