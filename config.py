@@ -43,3 +43,9 @@ if _raw_allowed_dims:
     )
 else:
     ALLOWED_DIMENSIONS = None
+
+# CORS policy: allow public GET/HEAD image reads by default, but restrict
+# cross-origin mutating requests (POST/PUT/DELETE) unless explicitly configured.
+CORS_READ_ORIGINS = os.environ.get('CORS_READ_ORIGINS', '*')
+_raw_cors_origins = os.environ.get('CORS_ORIGINS', '').strip()
+CORS_ORIGINS = [origin.strip() for origin in _raw_cors_origins.split(',') if origin.strip()]
