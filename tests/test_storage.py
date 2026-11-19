@@ -205,3 +205,9 @@ class TestFileSystemStorage(unittest.TestCase):
             pil_image = PILImage.open(cropped)
             self.assertEqual((200, 200), pil_image.size)
             self.assertEqual('JPEG', pil_image.format)
+
+    def test_invalid_dimensions_rejected(self):
+        self.assertRaises(ValueError, self.storage.get, 'some', 'png', 'crop', (0, 200))
+        self.assertRaises(ValueError, self.storage.get, 'some', 'png', 'crop', (-10, 200))
+        self.assertRaises(ValueError, self.storage.get, 'some', 'png', 'fit', (5000, 200))
+        self.assertRaises(ValueError, self.storage.get, 'some', 'png', 'fit', (200, 5000))

@@ -10,16 +10,26 @@ from image_service import image
 
 
 class FileSystemStorage(object):
-    def __init__(self, image_dir):
+    def __init__(self, image_dir, max_dimension=4096):
         self._image_dir = image_dir
+        self._max_dimension = max_dimension
         if not op.isdir(self._image_dir):
             os.makedirs(self._image_dir)
 
     def _check_mode_size(self, mode=None, size=None):
         if (mode or size) and (not mode or not size):
             raise ValueError('mode and size bust be given both or neither')
-        if mode and not mode in ('crop', 'fit'):
+        if mode and mode not in ('crop', 'fit'):
             raise ValueError('only fit or crop allowed for mode')
+        if size is not None:
+            if not isinstance(size, (tuple, list)) or len(size) != 2:
+                raise ValueError('size must be a (width, height) pair')
+            width, height = size
+            if (isinstance(width, bool) or isinstance(height, bool)
+                    or not isinstance(width, int) or not isinstance(height, int)):
+                raise ValueError('width and height must be integers')
+            if width < 1 or height < 1 or width > self._max_dimension or height > self._max_dimension:
+                raise ValueError('width and height must be between 1 and %d' % self._max_dimension)
 
     def exists(self, name, extension, mode=None, size=None):
         return op.isfile(self._path_to_image(name, extension, mode, size))
