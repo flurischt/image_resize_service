@@ -406,6 +406,9 @@ class TestImageService(unittest.TestCase):
             resp = self.app.get('/')
             self.assertEqual(200, resp.status_code)
             self.assertNotIn(b'Token demo', resp.data)
+            self.assertNotIn(b'<img src="\' +', resp.data)
+            self.assertNotIn(b'<a href="\' +', resp.data)
+            self.assertIn(b'noopener noreferrer', resp.data)
         finally:
             image_service.app.config['ENABLE_DEMO'] = original_demo
 
