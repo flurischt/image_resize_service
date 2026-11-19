@@ -202,3 +202,93 @@ class TestImageService(unittest.TestCase):
         image_extension = 'png'
         response = self._get_image(image_name, image_extension, mode='nonsense', size=(200, 200))
         self.assertEqual(404, response.status_code)
+
+    def test_get_manipulated_fit_image(self):
+        image_name = 'test_image'
+        image_extension = 'png'
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            response = self._put_image(png_image, '%s.%s' % (image_name, image_extension))
+            self.assertEqual(201, response.status_code)
+        response = self._get_image(image_name, image_extension, mode='fit', size=(200, 200))
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('image/png', response.mimetype)
+        pil_image = PILImage.open(BytesIO(response.data))
+        self.assertEqual((200, 150), pil_image.size)
+
+    def test_jpg_post_get_and_resize(self):
+        image_name = 'photo'
+        image_extension = 'jpg'
+        with open(self._test_image_path('jpg_image.jpg'), 'rb') as jpg_image:
+            response = self._post_image(jpg_image, '%s.%s' % (image_name, image_extension))
+            self.assertEqual(201, response.status_code)
+            json_payload = json.loads(response.data.decode())
+            self.assertEqual('/images/%s.%s' % (image_name, image_extension),
+                             json_payload['url'])
+        orig_response = self._get_image(image_name, image_extension)
+        self.assertEqual(200, orig_response.status_code)
+        self.assertEqual('image/jpeg', orig_response.mimetype)
+
+        fit_response = self._get_image(image_name, image_extension, mode='fit', size=(300, 300))
+        self.assertEqual(200, fit_response.status_code)
+        self.assertEqual('image/jpeg', fit_response.mimetype)
+        pil_image = PILImage.open(BytesIO(fit_response.data))
+        self.assertEqual((300, 225), pil_image.size)
+
+    def test_get_nonexistent_image_returns_404(self):
+        response = self._get_image('does_not_exist', 'png')
+        self.assertEqual(404, response.status_code)
+
+    def test_get_manipulated_nonexistent_image_returns_404(self):
+        response = self._get_image('does_not_exist', 'png', mode='crop', size=(100, 100))
+        self.assertEqual(404, response.status_code)
+
+    def test_get_manipulated_non_integer_dimensions_returns_404(self):
+        response = self.app.get('/images/test_image@crop-abcx200.png')
+        self.assertEqual(404, response.status_code)
+
+    def test_missing_auth_header_returns_401(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            post_resp = self.app.post('/images/',
+                                      content_type='multipart/form-data',
+                                      data={'file': (png_image, 'test.png')})
+            self.assertEqual(401, post_resp.status_code)
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            put_resp = self.app.put('/images/test.png',
+                                    content_type='multipart/form-data',
+                                    data={'file': (png_image, 'test.png')})
+            self.assertEqual(401, put_resp.status_code)
+
+    def test_index_demo_enabled_and_disabled(self):
+        original_demo = image_service.app.config.get('ENABLE_DEMO')
+        try:
+            image_service.app.config['ENABLE_DEMO'] = True
+            enabled_resp = self.app.get('/')
+            self.assertEqual(200, enabled_resp.status_code)
+            self.assertIn(b'Image Service', enabled_resp.data)
+
+            image_service.app.config['ENABLE_DEMO'] = False
+            disabled_resp = self.app.get('/')
+            self.assertEqual(404, disabled_resp.status_code)
+        finally:
+            image_service.app.config['ENABLE_DEMO'] = original_demo
+
+    def test_cors_headers_on_image_get(self):
+        image_name = 'test_image'
+        image_extension = 'png'
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self._put_image(png_image, '%s.%s' % (image_name, image_extension))
+        response = self.app.get('/images/%s.%s' % (image_name, image_extension),
+                                headers={'Origin': 'https://client.example'})
+        self.assertEqual(200, response.status_code)
+        self.assertIn(response.headers.get('Access-Control-Allow-Origin'),
+                      ('*', 'https://client.example'))
+
+    def test_cors_preflight_options(self):
+        response = self.app.options('/images/',
+                                    headers={
+                                        'Origin': 'https://client.example',
+                                        'Access-Control-Request-Method': 'POST',
+                                        'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                                    })
+        self.assertEqual(200, response.status_code)
+        self.assertIn('Authorization', response.headers.get('Access-Control-Allow-Headers', ''))

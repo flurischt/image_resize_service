@@ -45,7 +45,7 @@ class TestFileSystemStorage(unittest.TestCase):
             image_file = self.storage.get(image_name, image_extension)
             image_file.seek(0)
             png_file.seek(0)
-            self.assertTrue(file_path, image_file.name)
+            self.assertEqual(file_path, image_file.name)
             self.assertEqual(image_file.read(), png_file.read())
 
     def test_read_not_existing(self):
@@ -165,3 +165,43 @@ class TestFileSystemStorage(unittest.TestCase):
             self.storage.save(safe_name, image_extension, png_file.read())
         safe_name = self.storage.safe_name(image_name, image_extension)
         self.assertEqual('%s-2' % image_name, safe_name)
+
+    def test_exists_original_and_manipulated(self):
+        image_name = 'png_image'
+        image_extension = 'png'
+        self.assertFalse(self.storage.exists(image_name, image_extension))
+        with open(self._test_image_path('png_image.png'), 'rb') as png_file:
+            self.storage.save(image_name, image_extension, png_file.read())
+        self.assertTrue(self.storage.exists(image_name, image_extension))
+        self.assertFalse(self.storage.exists(image_name, image_extension, 'crop', (100, 100)))
+        with self.storage.get(image_name, image_extension, 'crop', (100, 100)):
+            pass
+        self.assertTrue(self.storage.exists(image_name, image_extension, 'crop', (100, 100)))
+
+    def test_delete_single_manipulated_keeps_original(self):
+        image_name = 'png_image'
+        image_extension = 'png'
+        with open(self._test_image_path('png_image.png'), 'rb') as png_file:
+            self.storage.save(image_name, image_extension, png_file.read())
+        with self.storage.get(image_name, image_extension, 'crop', (100, 100)):
+            pass
+        with self.storage.get(image_name, image_extension, 'fit', (100, 100)):
+            pass
+        self.storage.delete(image_name, image_extension, 'crop', (100, 100))
+        self.assertFalse(self.storage.exists(image_name, image_extension, 'crop', (100, 100)))
+        self.assertTrue(self.storage.exists(image_name, image_extension, 'fit', (100, 100)))
+        self.assertTrue(self.storage.exists(image_name, image_extension))
+
+    def test_jpg_auto_create_fit_and_crop(self):
+        image_name = 'jpg_image'
+        image_extension = 'jpg'
+        with open(self._test_image_path('jpg_image.jpg'), 'rb') as jpg_file:
+            self.storage.save(image_name, image_extension, jpg_file.read())
+        with self.storage.get(image_name, image_extension, 'fit', (200, 200)) as fitted:
+            pil_image = PILImage.open(fitted)
+            self.assertEqual((200, 150), pil_image.size)
+            self.assertEqual('JPEG', pil_image.format)
+        with self.storage.get(image_name, image_extension, 'crop', (200, 200)) as cropped:
+            pil_image = PILImage.open(cropped)
+            self.assertEqual((200, 200), pil_image.size)
+            self.assertEqual('JPEG', pil_image.format)
