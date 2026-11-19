@@ -472,3 +472,18 @@ class TestImageService(unittest.TestCase):
             self.assertEqual(404, self._get_image(bad_name, 'png').status_code)
             self.assertEqual(404, self._get_image(bad_name, 'png', mode='crop', size=(100, 100)).status_code)
             self.assertEqual(404, self._delete_image(bad_name, 'png').status_code)
+
+    def test_runserver_debug_disabled_by_default(self):
+        import runserver
+        saved = os.environ.pop('FLASK_DEBUG', None)
+        try:
+            self.assertFalse(runserver.is_debug_enabled())
+            os.environ['FLASK_DEBUG'] = 'true'
+            self.assertTrue(runserver.is_debug_enabled())
+            os.environ['FLASK_DEBUG'] = '0'
+            self.assertFalse(runserver.is_debug_enabled())
+        finally:
+            if saved is None:
+                os.environ.pop('FLASK_DEBUG', None)
+            else:
+                os.environ['FLASK_DEBUG'] = saved
