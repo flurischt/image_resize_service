@@ -356,3 +356,28 @@ class TestImageService(unittest.TestCase):
             self.assertIn("default-src 'none'", resp.headers.get('Content-Security-Policy', ''))
             self.assertIn('sandbox', resp.headers.get('Content-Security-Policy', ''))
             self.assertEqual('inline', resp.headers.get('Content-Disposition'))
+
+    def test_default_config_has_no_hardcoded_credentials_and_demo_disabled(self):
+        import importlib
+        import config
+        saved = {k: os.environ.pop(k, None) for k in ('ENABLE_DEMO', 'AUTH_TOKEN', 'AUTH_BASIC')}
+        try:
+            importlib.reload(config)
+            self.assertFalse(config.ENABLE_DEMO)
+            self.assertEqual('', config.AUTH_TOKEN)
+            self.assertEqual('', config.AUTH_BASIC)
+        finally:
+            for k, v in saved.items():
+                if v is not None:
+                    os.environ[k] = v
+            importlib.reload(config)
+
+    def test_demo_template_contains_no_hardcoded_token(self):
+        original_demo = image_service.app.config.get('ENABLE_DEMO')
+        try:
+            image_service.app.config['ENABLE_DEMO'] = True
+            resp = self.app.get('/')
+            self.assertEqual(200, resp.status_code)
+            self.assertNotIn(b'Token demo', resp.data)
+        finally:
+            image_service.app.config['ENABLE_DEMO'] = original_demo
