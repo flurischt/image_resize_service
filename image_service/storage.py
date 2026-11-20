@@ -2,7 +2,7 @@ import os
 import os.path as op
 import shutil
 
-from flask import safe_join
+from werkzeug.security import safe_join
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import NotFound
 
