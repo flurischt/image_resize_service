@@ -1,4 +1,5 @@
 import hmac
+import threading
 import werkzeug
 from functools import wraps
 
@@ -22,6 +23,7 @@ api = Api(app)
 cors = CORS(app, resources={r'/*': {'origins': '*'}})
 
 _storage = None
+_storage_lock = threading.Lock()
 
 
 @app.after_request
@@ -40,11 +42,13 @@ def add_header(response):
 def storage():
     """returns access to the storage (save_image(), get() and exists())"""
     global _storage
-    if not _storage:
-        _storage = FileSystemStorage(
-            app.config[CONFIG_STORAGE_DIR],
-            max_dimension=app.config.get('MAX_IMAGE_DIMENSION_PX', 4096),
-        )
+    if _storage is None:
+        with _storage_lock:
+            if _storage is None:
+                _storage = FileSystemStorage(
+                    app.config[CONFIG_STORAGE_DIR],
+                    max_dimension=app.config.get('MAX_IMAGE_DIMENSION_PX', 4096),
+                )
     return _storage
 
 
@@ -158,8 +162,10 @@ class UploadAPI(Resource):
         extension = extension.lower()
         data = uploaded_file.read()
         _validate_upload(data, extension)
-        filename = storage().safe_name(filename, extension)
-        storage().save(filename, extension, data)
+        try:
+            filename = storage().save_unique(filename, extension, data)
+        except ValueError as exc:
+            raise BadRequest(str(exc))
         url = api.url_for(ImageAPI, name=filename, extension=extension)
         return {'url': url}, 201
 
@@ -182,8 +188,11 @@ class ImageAPI(Resource):
         extension = extension.lower()
         data = uploaded_file.read()
         _validate_upload(data, extension)
-        created = not storage().exists(name, extension)
-        storage().save(name, extension, data)
+        try:
+            created = not storage().exists(name, extension)
+            storage().save(name, extension, data)
+        except ValueError as exc:
+            raise BadRequest(str(exc))
         return Response('', 201 if created else 200)
 
     @requires_auth
@@ -191,16 +200,22 @@ class ImageAPI(Resource):
         extension = extension.lower()
         if image_utils.mime_type_from_extension(extension) is None:
             raise NotFound()
-        if storage().exists(name, extension):
-            storage().delete(name, extension)
-            return Response('', 200)
+        try:
+            if storage().exists(name, extension):
+                storage().delete(name, extension)
+                return Response('', 200)
+        except ValueError:
+            raise NotFound()
         raise NotFound()
 
     def get(self, name, extension):
         extension = extension.lower()
         if image_utils.mime_type_from_extension(extension) is None:
             raise NotFound()
-        image = storage().get(name, extension)
+        try:
+            image = storage().get(name, extension)
+        except ValueError:
+            raise NotFound()
         return _serve_image(image, extension)
 
 
