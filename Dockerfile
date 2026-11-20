@@ -11,7 +11,7 @@ COPY ./requirements.txt /app/
 RUN pip install --no-cache-dir uwsgi==2.0.31 -r /app/requirements.txt
 
 FROM python:3.12-slim
-LABEL org.opencontainers.image.authors="Chris Weber"
+LABEL org.opencontainers.image.authors="Flurin Ineichen"
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH"
