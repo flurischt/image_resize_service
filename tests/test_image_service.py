@@ -356,3 +356,65 @@ class TestImageService(unittest.TestCase):
             self.assertIn("default-src 'none'", resp.headers.get('Content-Security-Policy', ''))
             self.assertIn('sandbox', resp.headers.get('Content-Security-Policy', ''))
             self.assertEqual('inline', resp.headers.get('Content-Disposition'))
+
+    def test_default_config_has_no_hardcoded_credentials_and_demo_disabled(self):
+        import importlib
+        import config
+        saved = {k: os.environ.pop(k, None) for k in ('ENABLE_DEMO', 'AUTH_TOKEN', 'AUTH_BASIC')}
+        try:
+            importlib.reload(config)
+            self.assertFalse(config.ENABLE_DEMO)
+            self.assertEqual('', config.AUTH_TOKEN)
+            self.assertEqual('', config.AUTH_BASIC)
+        finally:
+            for k, v in saved.items():
+                if v is not None:
+                    os.environ[k] = v
+            importlib.reload(config)
+
+    def test_demo_template_contains_no_hardcoded_token(self):
+        original_demo = image_service.app.config.get('ENABLE_DEMO')
+        try:
+            image_service.app.config['ENABLE_DEMO'] = True
+            resp = self.app.get('/')
+            self.assertEqual(200, resp.status_code)
+            self.assertNotIn(b'Token demo', resp.data)
+        finally:
+            image_service.app.config['ENABLE_DEMO'] = original_demo
+
+    def test_malformed_authorization_headers_return_401(self):
+        malformed_headers = [
+            'Token',
+            'Token ',
+            'Token one two',
+            'TokenPrefix',
+            'Basic',
+            'Basic ',
+            'Basic !!!not-valid-base64!!!',
+            'Bearer some-token',
+        ]
+        for auth_header in malformed_headers:
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                resp = self.app.post('/images/',
+                                     content_type='multipart/form-data',
+                                     headers={'Authorization': auth_header, 'Origin': self.origin},
+                                     data={'file': (png_image, 'test.png')})
+                self.assertEqual(401, resp.status_code, msg='Failed for header: %r' % auth_header)
+
+    def test_config_parses_origin_urls_and_passwords_with_colons(self):
+        import importlib
+        import config
+        saved = {k: os.environ.get(k) for k in ('AUTH_TOKEN', 'AUTH_BASIC')}
+        try:
+            os.environ['AUTH_TOKEN'] = 'https://example.com:8443:mysecret'
+            os.environ['AUTH_BASIC'] = 'uploader:p@ss:with:colons'
+            importlib.reload(config)
+            self.assertEqual(('https://example.com:8443', 'mysecret'), config.AUTH_TOKEN)
+            self.assertEqual(('uploader', 'p@ss:with:colons'), config.AUTH_BASIC)
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+            importlib.reload(config)

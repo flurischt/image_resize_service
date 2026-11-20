@@ -1,3 +1,4 @@
+import hmac
 import werkzeug
 from functools import wraps
 
@@ -64,15 +65,33 @@ def _validate_upload(binary_data, extension):
 
 
 def _check_auth_token(origin, token):
-    if 'AUTH_TOKEN' in app.config and app.config['AUTH_TOKEN'] != '':
-        expected_origin, expected_token = app.config['AUTH_TOKEN']
-        return (expected_origin == '*' or expected_origin == origin) and expected_token == token
+    auth_token = app.config.get('AUTH_TOKEN')
+    if not auth_token or len(auth_token) != 2 or not token:
+        return False
+    expected_origin, expected_token = auth_token
+    if not expected_token:
+        return False
+    # Use constant-time comparison to avoid timing side-channels that leak secret
+    # bytes via early-exit `==`, and evaluate both checks before combining.
+    token_matches = hmac.compare_digest(expected_token, token)
+    origin_matches = expected_origin == '*' or (
+        origin is not None and hmac.compare_digest(expected_origin, origin)
+    )
+    return origin_matches and token_matches
 
 
 def _check_auth_basic(username, password):
-    if 'AUTH_BASIC' in app.config and app.config['AUTH_BASIC'] != '':
-        correct_user, correct_pass = app.config['AUTH_BASIC']
-        return username == correct_user and password == correct_pass
+    auth_basic = app.config.get('AUTH_BASIC')
+    if not auth_basic or len(auth_basic) != 2 or username is None or password is None:
+        return False
+    correct_user, correct_pass = auth_basic
+    if not correct_user or not correct_pass:
+        return False
+    # Use constant-time comparison (and avoid short-circuiting `and`) so response
+    # timing cannot distinguish an invalid username from an invalid password or leak characters.
+    user_matches = hmac.compare_digest(correct_user, username)
+    pass_matches = hmac.compare_digest(correct_pass, password)
+    return user_matches and pass_matches
 
 
 @app.route('/')
@@ -85,18 +104,17 @@ def index():
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        # check if it has auth token
         auth_header = request.headers.get('Authorization')
         origin = request.headers.get('Origin')
         if auth_header is not None:
-            if auth_header.startswith('Token'):
-                # get the origin header
-                key, token = auth_header.split(' ')
-                if _check_auth_token(origin, token):
+            scheme, sep, credentials = auth_header.strip().partition(' ')
+            if sep and scheme == 'Token':
+                token = credentials.strip()
+                if token and ' ' not in token and _check_auth_token(origin, token):
                     return f(*args, **kwargs)
-            if auth_header.startswith('Basic'):
+            elif sep and scheme == 'Basic':
                 auth = request.authorization
-                if _check_auth_basic(auth.username, auth.password):
+                if auth is not None and _check_auth_basic(auth.username, auth.password):
                     return f(*args, **kwargs)
         raise Unauthorized()
     return decorated
