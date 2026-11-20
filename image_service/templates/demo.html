@@ -21,6 +21,10 @@
 
 <h2>Dropzone Demo</h2>
 
+<p>
+    <label for="auth-token">Auth Token:</label>
+    <input id="auth-token" type="password" autocomplete="off" placeholder="Enter upload token"/>
+</p>
 
 <div class="dropzone" style="height:100px;width:600px"></div>
 
@@ -34,8 +38,13 @@
 
     new Dropzone("div.dropzone", {
         url: location.protocol + "//" + window.location.host + "/images/",
-        acceptedFiles: 'image/*',
-        headers: {"Authorization": "Token demo"},
+        acceptedFiles: 'image/jpeg,image/png',
+        sending: function (file, xhr) {
+            var token = document.getElementById("auth-token").value;
+            if (token) {
+                xhr.setRequestHeader("Authorization", "Token " + token);
+            }
+        },
         success: function (file, responseText) {
             var extension = responseText.url.split('.').pop();
             var fileName = responseText.url.split('.').shift();

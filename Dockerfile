@@ -16,9 +16,6 @@ LABEL org.opencontainers.image.authors="Flurin Ineichen"
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH"
 ENV STORAGE_DIR="/var/lib/image_service/data"
-ENV ENABLE_DEMO="True"
-ENV AUTH_TOKEN="*:demo"
-ENV AUTH_BASIC="uploader:uploader"
 
 COPY --from=builder /opt/venv /opt/venv
 
