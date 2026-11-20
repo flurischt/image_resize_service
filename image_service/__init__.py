@@ -1,13 +1,13 @@
-import mimetypes
 import werkzeug
 from functools import wraps
 
 from flask import Flask, send_file, request, Response, render_template
 from flask_restful import Api, Resource, reqparse, fields, marshal_with
 from flask_cors import CORS
-from werkzeug.exceptions import NotFound, Unauthorized
+from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 from werkzeug.utils import secure_filename
 
+from image_service import image as image_utils
 from image_service.storage import FileSystemStorage
 
 
@@ -43,8 +43,24 @@ def storage():
 
 
 def _serve_image(image_file, extension):
-    mime_type = mimetypes.types_map['.%s' % extension.lower()]
-    return send_file(image_file, mimetype=mime_type, etag=False)
+    mime_type = image_utils.mime_type_from_extension(extension)
+    if mime_type is None:
+        image_file.close()
+        raise NotFound()
+    response = send_file(image_file, mimetype=mime_type, etag=False)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
+    )
+    response.headers['Content-Disposition'] = 'inline'
+    return response
+
+
+def _validate_upload(binary_data, extension):
+    try:
+        image_utils.validate_image_data(binary_data, extension)
+    except ValueError as exc:
+        raise BadRequest(str(exc))
 
 
 def _check_auth_token(origin, token):
@@ -108,10 +124,15 @@ class UploadAPI(Resource):
     def post(self):
         args = self.reqparse.parse_args()
         uploaded_file = args['file']
-        filename, extension = secure_filename(uploaded_file.filename).rsplit(
-            '.', 1)
+        sanitized = secure_filename(uploaded_file.filename or '')
+        if '.' not in sanitized:
+            raise BadRequest('Filename must include an image extension')
+        filename, extension = sanitized.rsplit('.', 1)
+        extension = extension.lower()
+        data = uploaded_file.read()
+        _validate_upload(data, extension)
         filename = storage().safe_name(filename, extension)
-        storage().save(filename, extension, uploaded_file.read())
+        storage().save(filename, extension, data)
         url = api.url_for(ImageAPI, name=filename, extension=extension)
         return {'url': url}, 201
 
@@ -131,18 +152,27 @@ class ImageAPI(Resource):
     def put(self, name, extension):
         args = self.reqparse.parse_args()
         uploaded_file = args['file']
+        extension = extension.lower()
+        data = uploaded_file.read()
+        _validate_upload(data, extension)
         created = not storage().exists(name, extension)
-        storage().save(name, extension, uploaded_file.read())
+        storage().save(name, extension, data)
         return Response('', 201 if created else 200)
 
     @requires_auth
     def delete(self, name, extension):
+        extension = extension.lower()
+        if image_utils.mime_type_from_extension(extension) is None:
+            raise NotFound()
         if storage().exists(name, extension):
             storage().delete(name, extension)
             return Response('', 200)
         raise NotFound()
 
     def get(self, name, extension):
+        extension = extension.lower()
+        if image_utils.mime_type_from_extension(extension) is None:
+            raise NotFound()
         image = storage().get(name, extension)
         return _serve_image(image, extension)
 
@@ -153,6 +183,9 @@ class ManipulatedImageAPI(Resource):
     """
 
     def get(self, name, mode, width, height, extension):
+        extension = extension.lower()
+        if image_utils.mime_type_from_extension(extension) is None:
+            raise NotFound()
         try:
             image = storage().get(name, extension, mode, (int(width), int(height)))
         except ValueError:

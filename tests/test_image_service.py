@@ -317,3 +317,42 @@ class TestImageService(unittest.TestCase):
     def test_delete_image_requires_auth(self):
         response = self.app.delete('/images/test_image.png')
         self.assertEqual(401, response.status_code)
+
+    def test_post_rejects_html_and_svg_uploads(self):
+        html_resp = self._post_image(BytesIO(b'<script>alert(1)</script>'), 'xss.html')
+        self.assertEqual(400, html_resp.status_code)
+        svg_resp = self._post_image(BytesIO(b'<svg onload=alert(1)></svg>'), 'xss.svg')
+        self.assertEqual(400, svg_resp.status_code)
+        no_ext_resp = self._post_image(BytesIO(b'data'), 'noextension')
+        self.assertEqual(400, no_ext_resp.status_code)
+
+    def test_post_rejects_spoofed_png_and_mismatched_format(self):
+        fake_png = self._post_image(BytesIO(b'<html><script>alert(1)</script></html>'), 'fake.png')
+        self.assertEqual(400, fake_png.status_code)
+        with open(self._test_image_path('jpg_image.jpg'), 'rb') as jpg_image:
+            mismatch = self._post_image(jpg_image, 'actually_jpg.png')
+            self.assertEqual(400, mismatch.status_code)
+
+    def test_put_rejects_disallowed_extension_and_invalid_bytes(self):
+        html_resp = self._put_image(BytesIO(b'<script>alert(1)</script>'), 'xss.html')
+        self.assertEqual(400, html_resp.status_code)
+        fake_png = self._put_image(BytesIO(b'not a real png'), 'fake.png')
+        self.assertEqual(400, fake_png.status_code)
+
+    def test_get_disallowed_extension_returns_404(self):
+        self.assertEqual(404, self._get_image('evil', 'html').status_code)
+        self.assertEqual(404, self._get_image('evil', 'unknownext').status_code)
+        self.assertEqual(404, self._get_image('evil', 'svg', mode='crop', size=(50, 50)).status_code)
+
+    def test_served_image_security_headers(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self.assertEqual(201, self._put_image(png_image, 'headers_test.png').status_code)
+        for resp in (
+            self._get_image('headers_test', 'png'),
+            self._get_image('headers_test', 'png', mode='fit', size=(100, 100)),
+        ):
+            self.assertEqual(200, resp.status_code)
+            self.assertEqual('nosniff', resp.headers.get('X-Content-Type-Options'))
+            self.assertIn("default-src 'none'", resp.headers.get('Content-Security-Policy', ''))
+            self.assertIn('sandbox', resp.headers.get('Content-Security-Policy', ''))
+            self.assertEqual('inline', resp.headers.get('Content-Disposition'))

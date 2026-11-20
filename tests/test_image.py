@@ -61,3 +61,17 @@ class TestImage(unittest.TestCase):
         self.assertEqual('JPEG', image.pil_format_from_file_extension('.JPG'))
         self.assertEqual('JPEG', image.pil_format_from_file_extension('.jpeg'))
         self.assertEqual('PNG', image.pil_format_from_file_extension('.png'))
+        self.assertIsNone(image.pil_format_from_file_extension('.html'))
+        self.assertIsNone(image.pil_format_from_file_extension('.svg'))
+
+    def test_validate_image_data(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as f:
+            png_bytes = f.read()
+        with open(self._test_image_path('jpg_image.jpg'), 'rb') as f:
+            jpg_bytes = f.read()
+        image.validate_image_data(png_bytes, 'png')
+        image.validate_image_data(jpg_bytes, 'jpg')
+        self.assertRaises(ValueError, image.validate_image_data, b'<script>alert(1)</script>', 'html')
+        self.assertRaises(ValueError, image.validate_image_data, b'<script>alert(1)</script>', 'png')
+        self.assertRaises(ValueError, image.validate_image_data, jpg_bytes, 'png')
+        self.assertRaises(ValueError, image.validate_image_data, b'', 'png')
