@@ -10,16 +10,26 @@ from image_service import image
 
 
 class FileSystemStorage(object):
-    def __init__(self, image_dir):
+    def __init__(self, image_dir, max_dimension=4096):
         self._image_dir = image_dir
+        self._max_dimension = max_dimension
         if not op.isdir(self._image_dir):
             os.makedirs(self._image_dir)
 
     def _check_mode_size(self, mode=None, size=None):
         if (mode or size) and (not mode or not size):
             raise ValueError('mode and size bust be given both or neither')
-        if mode and not mode in ('crop', 'fit'):
+        if mode and mode not in ('crop', 'fit'):
             raise ValueError('only fit or crop allowed for mode')
+        if size is not None:
+            if not isinstance(size, (tuple, list)) or len(size) != 2:
+                raise ValueError('size must be a (width, height) pair')
+            width, height = size
+            if (isinstance(width, bool) or isinstance(height, bool)
+                    or not isinstance(width, int) or not isinstance(height, int)):
+                raise ValueError('width and height must be integers')
+            if width < 1 or height < 1 or width > self._max_dimension or height > self._max_dimension:
+                raise ValueError('width and height must be between 1 and %d' % self._max_dimension)
 
     def exists(self, name, extension, mode=None, size=None):
         return op.isfile(self._path_to_image(name, extension, mode, size))
@@ -28,19 +38,24 @@ class FileSystemStorage(object):
         self._check_mode_size(mode, size)
         if self.exists(name, extension, mode, size):
             self.delete(name, extension, mode, size)
-        with open(self._path_to_image(name, extension, mode, size), 'wb') as f:
+        image_path = self._path_to_image(name, extension, mode, size)
+        directory = op.dirname(image_path)
+        if not op.isdir(directory):
+            os.makedirs(directory)
+        with open(image_path, 'wb') as f:
             f.write(binary_image_data)
 
     def get(self, name, extension, mode=None, size=None):
         self._check_mode_size(mode, size)
         image_path = self._path_to_image(name, extension, mode, size)
         if mode and not op.isfile(image_path):
-            original_image = self.get(name, extension)
-            if mode == 'crop':
-                manipulated_image = image.crop_image(original_image, size)
-            elif mode == 'fit':
-                manipulated_image = image.fit_image(original_image, size)
-            self.save(name, extension, manipulated_image.read(), mode, size)
+            with self.get(name, extension) as original_image:
+                if mode == 'crop':
+                    manipulated_image = image.crop_image(original_image, size)
+                elif mode == 'fit':
+                    manipulated_image = image.fit_image(original_image, size)
+            with manipulated_image:
+                self.save(name, extension, manipulated_image.read(), mode, size)
 
         if op.isfile(image_path):
             return open(image_path, 'rb')
@@ -77,6 +92,4 @@ class FileSystemStorage(object):
         else:
             filename = secure_filename(name + '.' + extension)
             directory = self._image_dir
-        if not op.isdir(directory):
-            os.makedirs(directory)
         return safe_join(directory, filename)

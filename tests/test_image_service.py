@@ -418,3 +418,48 @@ class TestImageService(unittest.TestCase):
                 else:
                     os.environ[k] = v
             importlib.reload(config)
+
+    def test_resize_dimension_bounds_enforced(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self.assertEqual(201, self._put_image(png_image, 'bounds.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@crop-0x200.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@crop-10x-200.png').status_code)
+        self.assertEqual(404, self.app.get('/images/bounds@crop--10x200.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@crop-99999x99999.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@fit-4097x100.png').status_code)
+
+    def test_allowed_dimensions_allowlist(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self.assertEqual(201, self._put_image(png_image, 'allowlist.png').status_code)
+        original = image_service.app.config.get('ALLOWED_DIMENSIONS')
+        try:
+            image_service.app.config['ALLOWED_DIMENSIONS'] = frozenset({(100, 100)})
+            self.assertEqual(200, self._get_image('allowlist', 'png', mode='crop', size=(100, 100)).status_code)
+            self.assertEqual(400, self._get_image('allowlist', 'png', mode='crop', size=(150, 150)).status_code)
+        finally:
+            image_service.app.config['ALLOWED_DIMENSIONS'] = original
+
+    def test_max_content_length_enforced(self):
+        original = image_service.app.config.get('MAX_CONTENT_LENGTH')
+        try:
+            image_service.app.config['MAX_CONTENT_LENGTH'] = 100
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                resp = self._post_image(png_image, 'too_big.png')
+                self.assertEqual(413, resp.status_code)
+        finally:
+            image_service.app.config['MAX_CONTENT_LENGTH'] = original
+
+    def test_max_image_pixels_enforced(self):
+        original = image_service.app.config.get('MAX_IMAGE_PIXELS')
+        try:
+            image_service.app.config['MAX_IMAGE_PIXELS'] = 1000
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                resp = self._post_image(png_image, 'too_many_pixels.png')
+                self.assertEqual(400, resp.status_code)
+        finally:
+            image_service.app.config['MAX_IMAGE_PIXELS'] = original
+
+    def test_unauthenticated_missing_resize_creates_no_directories(self):
+        resp = self._get_image('ghost_image', 'png', mode='crop', size=(100, 100))
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual([], os.listdir(self.storage_directory))
