@@ -406,6 +406,9 @@ class TestImageService(unittest.TestCase):
             resp = self.app.get('/')
             self.assertEqual(200, resp.status_code)
             self.assertNotIn(b'Token demo', resp.data)
+            self.assertNotIn(b'<img src="\' +', resp.data)
+            self.assertNotIn(b'<a href="\' +', resp.data)
+            self.assertIn(b'noopener noreferrer', resp.data)
         finally:
             image_service.app.config['ENABLE_DEMO'] = original_demo
 
@@ -514,3 +517,14 @@ class TestImageService(unittest.TestCase):
                 os.environ.pop('FLASK_DEBUG', None)
             else:
                 os.environ['FLASK_DEBUG'] = saved
+
+    def test_dockerfile_security_hardening(self):
+        dockerfile_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            'Dockerfile')
+        with open(dockerfile_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        self.assertNotIn('python:2', content)
+        self.assertNotIn('AUTH_TOKEN', content)
+        self.assertNotIn('AUTH_BASIC', content)
+        self.assertIn('USER image_service', content)
