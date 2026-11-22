@@ -30,6 +30,8 @@ PILImage.MAX_IMAGE_PIXELS = app.config.get('MAX_IMAGE_PIXELS', 25_000_000)
 api = Api(app)
 
 _storage = None
+# Only protects lazy one-time initialization of the `_storage` singleton;
+# individual file operations rely on atomic filesystem calls in FileSystemStorage.
 _storage_lock = threading.Lock()
 
 
