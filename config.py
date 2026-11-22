@@ -8,12 +8,44 @@ import os.path as op
 BASE_DIR = op.dirname(op.realpath(__file__))
 
 # the directory where you want to store the source images (if using FILESYSTEM storage)
-STORAGE_DIRECTORY = os.path.join(BASE_DIR, 'storage')
-
-# enables demo
 STORAGE_DIRECTORY = os.environ.get('STORAGE_DIR', os.path.join(BASE_DIR, 'storage'))
-ENABLE_DEMO = os.environ.get('ENABLE_DEMO', 'True') == 'True'
-AUTH_TOKEN = os.environ.get('AUTH_TOKEN', '*:demo').split(":") \
-    if ":" in os.environ.get('AUTH_TOKEN', '*:demo') else ""
-AUTH_BASIC = os.environ.get('AUTH_BASIC', 'uploader:uploader').split(":") \
-    if ":" in os.environ.get('AUTH_BASIC', 'uploader:uploader') else ""
+
+# demo page is disabled by default; configure auth via environment variables
+ENABLE_DEMO = os.environ.get('ENABLE_DEMO', 'False').lower() == 'true'
+_raw_auth_token = os.environ.get('AUTH_TOKEN', '')
+if ':' in _raw_auth_token:
+    _origin, _token = _raw_auth_token.rsplit(':', 1)
+    AUTH_TOKEN = (_origin, _token) if _origin and _token else ""
+else:
+    AUTH_TOKEN = ""
+
+_raw_auth_basic = os.environ.get('AUTH_BASIC', '')
+if ':' in _raw_auth_basic:
+    _user, _password = _raw_auth_basic.split(':', 1)
+    AUTH_BASIC = (_user, _password) if _user and _password else ""
+else:
+    AUTH_BASIC = ""
+
+# Resource limits (DoS protection)
+# Maximum HTTP request/upload body size in bytes (assigned to Flask's built-in MAX_CONTENT_LENGTH key).
+MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH_BYTES', 10 * 1024 * 1024))
+# Maximum total pixel count (width * height) allowed when decoding an uploaded image.
+MAX_IMAGE_PIXELS = int(os.environ.get('MAX_IMAGE_PIXELS', 25_000_000))
+# Maximum allowed width or height in pixels for a resized/cropped image (applies to both axes independently).
+MAX_IMAGE_DIMENSION_PX = int(os.environ.get('MAX_IMAGE_DIMENSION_PX', 4096))
+
+_raw_allowed_dims = os.environ.get('ALLOWED_DIMENSIONS', '').strip()
+if _raw_allowed_dims:
+    ALLOWED_DIMENSIONS = frozenset(
+        tuple(int(part) for part in item.strip().lower().split('x', 1))
+        for item in _raw_allowed_dims.split(',')
+        if 'x' in item.lower()
+    )
+else:
+    ALLOWED_DIMENSIONS = None
+
+# CORS policy: allow public GET/HEAD image reads by default, but restrict
+# cross-origin mutating requests (POST/PUT/DELETE) unless explicitly configured.
+CORS_READ_ORIGINS = os.environ.get('CORS_READ_ORIGINS', '*')
+_raw_cors_origins = os.environ.get('CORS_ORIGINS', '').strip()
+CORS_ORIGINS = [origin.strip() for origin in _raw_cors_origins.split(',') if origin.strip()]

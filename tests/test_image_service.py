@@ -277,18 +277,45 @@ class TestImageService(unittest.TestCase):
         response = self.app.get('/images/%s.%s' % (image_name, image_extension),
                                 headers={'Origin': 'https://client.example'})
         self.assertEqual(200, response.status_code)
-        self.assertIn(response.headers.get('Access-Control-Allow-Origin'),
-                      ('*', 'https://client.example'))
+        self.assertEqual('*', response.headers.get('Access-Control-Allow-Origin'))
+        self.assertIsNone(response.headers.get('Access-Control-Allow-Headers'))
 
     def test_cors_preflight_options(self):
-        response = self.app.options('/images/',
-                                    headers={
-                                        'Origin': 'https://client.example',
-                                        'Access-Control-Request-Method': 'POST',
-                                        'Access-Control-Request-Headers': 'Authorization, Content-Type'
-                                    })
-        self.assertEqual(200, response.status_code)
-        self.assertIn('Authorization', response.headers.get('Access-Control-Allow-Headers', ''))
+        original = image_service.app.config.get('CORS_ORIGINS')
+        try:
+            # Default: mutating cross-origin preflights are not granted CORS headers
+            image_service.app.config['CORS_ORIGINS'] = []
+            blocked = self.app.options('/images/',
+                                       headers={
+                                           'Origin': 'https://untrusted.example',
+                                           'Access-Control-Request-Method': 'POST',
+                                           'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                                       })
+            self.assertEqual(200, blocked.status_code)
+            self.assertIsNone(blocked.headers.get('Access-Control-Allow-Origin'))
+            self.assertIsNone(blocked.headers.get('Access-Control-Allow-Headers'))
+
+            # Explicitly configured origin is allowed while other origins remain rejected
+            image_service.app.config['CORS_ORIGINS'] = ['https://client.example']
+            allowed = self.app.options('/images/',
+                                       headers={
+                                           'Origin': 'https://client.example',
+                                           'Access-Control-Request-Method': 'POST',
+                                           'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                                       })
+            self.assertEqual(200, allowed.status_code)
+            self.assertEqual('https://client.example', allowed.headers.get('Access-Control-Allow-Origin'))
+            self.assertIn('Authorization', allowed.headers.get('Access-Control-Allow-Headers', ''))
+
+            other = self.app.options('/images/',
+                                     headers={
+                                         'Origin': 'https://evil.example',
+                                         'Access-Control-Request-Method': 'POST',
+                                         'Access-Control-Request-Headers': 'Authorization'
+                                     })
+            self.assertIsNone(other.headers.get('Access-Control-Allow-Origin'))
+        finally:
+            image_service.app.config['CORS_ORIGINS'] = original
 
     def _delete_image(self, image_name, image_extension, origin=None, auth_token=None):
         origin = self.origin if origin is None else origin
@@ -356,3 +383,134 @@ class TestImageService(unittest.TestCase):
             self.assertIn("default-src 'none'", resp.headers.get('Content-Security-Policy', ''))
             self.assertIn('sandbox', resp.headers.get('Content-Security-Policy', ''))
             self.assertEqual('inline', resp.headers.get('Content-Disposition'))
+
+    def test_default_config_has_no_hardcoded_credentials_and_demo_disabled(self):
+        import importlib
+        import config
+        saved = {k: os.environ.pop(k, None) for k in ('ENABLE_DEMO', 'AUTH_TOKEN', 'AUTH_BASIC')}
+        try:
+            importlib.reload(config)
+            self.assertFalse(config.ENABLE_DEMO)
+            self.assertEqual('', config.AUTH_TOKEN)
+            self.assertEqual('', config.AUTH_BASIC)
+        finally:
+            for k, v in saved.items():
+                if v is not None:
+                    os.environ[k] = v
+            importlib.reload(config)
+
+    def test_demo_template_contains_no_hardcoded_token(self):
+        original_demo = image_service.app.config.get('ENABLE_DEMO')
+        try:
+            image_service.app.config['ENABLE_DEMO'] = True
+            resp = self.app.get('/')
+            self.assertEqual(200, resp.status_code)
+            self.assertNotIn(b'Token demo', resp.data)
+        finally:
+            image_service.app.config['ENABLE_DEMO'] = original_demo
+
+    def test_malformed_authorization_headers_return_401(self):
+        malformed_headers = [
+            'Token',
+            'Token ',
+            'Token one two',
+            'TokenPrefix',
+            'Basic',
+            'Basic ',
+            'Basic !!!not-valid-base64!!!',
+            'Bearer some-token',
+        ]
+        for auth_header in malformed_headers:
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                resp = self.app.post('/images/',
+                                     content_type='multipart/form-data',
+                                     headers={'Authorization': auth_header, 'Origin': self.origin},
+                                     data={'file': (png_image, 'test.png')})
+                self.assertEqual(401, resp.status_code, msg='Failed for header: %r' % auth_header)
+
+    def test_config_parses_origin_urls_and_passwords_with_colons(self):
+        import importlib
+        import config
+        saved = {k: os.environ.get(k) for k in ('AUTH_TOKEN', 'AUTH_BASIC')}
+        try:
+            os.environ['AUTH_TOKEN'] = 'https://example.com:8443:mysecret'
+            os.environ['AUTH_BASIC'] = 'uploader:p@ss:with:colons'
+            importlib.reload(config)
+            self.assertEqual(('https://example.com:8443', 'mysecret'), config.AUTH_TOKEN)
+            self.assertEqual(('uploader', 'p@ss:with:colons'), config.AUTH_BASIC)
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+            importlib.reload(config)
+
+    def test_resize_dimension_bounds_enforced(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self.assertEqual(201, self._put_image(png_image, 'bounds.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@crop-0x200.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@crop-10x-200.png').status_code)
+        self.assertEqual(404, self.app.get('/images/bounds@crop--10x200.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@crop-99999x99999.png').status_code)
+        self.assertEqual(400, self.app.get('/images/bounds@fit-4097x100.png').status_code)
+
+    def test_allowed_dimensions_allowlist(self):
+        with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+            self.assertEqual(201, self._put_image(png_image, 'allowlist.png').status_code)
+        original = image_service.app.config.get('ALLOWED_DIMENSIONS')
+        try:
+            image_service.app.config['ALLOWED_DIMENSIONS'] = frozenset({(100, 100)})
+            self.assertEqual(200, self._get_image('allowlist', 'png', mode='crop', size=(100, 100)).status_code)
+            self.assertEqual(400, self._get_image('allowlist', 'png', mode='crop', size=(150, 150)).status_code)
+        finally:
+            image_service.app.config['ALLOWED_DIMENSIONS'] = original
+
+    def test_max_content_length_enforced(self):
+        original = image_service.app.config.get('MAX_CONTENT_LENGTH')
+        try:
+            image_service.app.config['MAX_CONTENT_LENGTH'] = 100
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                resp = self._post_image(png_image, 'too_big.png')
+                self.assertEqual(413, resp.status_code)
+        finally:
+            image_service.app.config['MAX_CONTENT_LENGTH'] = original
+
+    def test_max_image_pixels_enforced(self):
+        original = image_service.app.config.get('MAX_IMAGE_PIXELS')
+        try:
+            image_service.app.config['MAX_IMAGE_PIXELS'] = 1000
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                resp = self._post_image(png_image, 'too_many_pixels.png')
+                self.assertEqual(400, resp.status_code)
+        finally:
+            image_service.app.config['MAX_IMAGE_PIXELS'] = original
+
+    def test_unauthenticated_missing_resize_creates_no_directories(self):
+        resp = self._get_image('ghost_image', 'png', mode='crop', size=(100, 100))
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual([], os.listdir(self.storage_directory))
+
+    def test_invalid_image_names_handled_without_500(self):
+        for bad_name in ('_leading', 'has space', '!!!', 'foo..bar'):
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                put_resp = self._put_image(png_image, '%s.png' % bad_name)
+                self.assertEqual(400, put_resp.status_code, msg='PUT failed for %r' % bad_name)
+            self.assertEqual(404, self._get_image(bad_name, 'png').status_code)
+            self.assertEqual(404, self._get_image(bad_name, 'png', mode='crop', size=(100, 100)).status_code)
+            self.assertEqual(404, self._delete_image(bad_name, 'png').status_code)
+
+    def test_runserver_debug_disabled_by_default(self):
+        import runserver
+        saved = os.environ.pop('FLASK_DEBUG', None)
+        try:
+            self.assertFalse(runserver.is_debug_enabled())
+            os.environ['FLASK_DEBUG'] = 'true'
+            self.assertTrue(runserver.is_debug_enabled())
+            os.environ['FLASK_DEBUG'] = '0'
+            self.assertFalse(runserver.is_debug_enabled())
+        finally:
+            if saved is None:
+                os.environ.pop('FLASK_DEBUG', None)
+            else:
+                os.environ['FLASK_DEBUG'] = saved
