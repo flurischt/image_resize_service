@@ -277,18 +277,45 @@ class TestImageService(unittest.TestCase):
         response = self.app.get('/images/%s.%s' % (image_name, image_extension),
                                 headers={'Origin': 'https://client.example'})
         self.assertEqual(200, response.status_code)
-        self.assertIn(response.headers.get('Access-Control-Allow-Origin'),
-                      ('*', 'https://client.example'))
+        self.assertEqual('*', response.headers.get('Access-Control-Allow-Origin'))
+        self.assertIsNone(response.headers.get('Access-Control-Allow-Headers'))
 
     def test_cors_preflight_options(self):
-        response = self.app.options('/images/',
-                                    headers={
-                                        'Origin': 'https://client.example',
-                                        'Access-Control-Request-Method': 'POST',
-                                        'Access-Control-Request-Headers': 'Authorization, Content-Type'
-                                    })
-        self.assertEqual(200, response.status_code)
-        self.assertIn('Authorization', response.headers.get('Access-Control-Allow-Headers', ''))
+        original = image_service.app.config.get('CORS_ORIGINS')
+        try:
+            # Default: mutating cross-origin preflights are not granted CORS headers
+            image_service.app.config['CORS_ORIGINS'] = []
+            blocked = self.app.options('/images/',
+                                       headers={
+                                           'Origin': 'https://untrusted.example',
+                                           'Access-Control-Request-Method': 'POST',
+                                           'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                                       })
+            self.assertEqual(200, blocked.status_code)
+            self.assertIsNone(blocked.headers.get('Access-Control-Allow-Origin'))
+            self.assertIsNone(blocked.headers.get('Access-Control-Allow-Headers'))
+
+            # Explicitly configured origin is allowed while other origins remain rejected
+            image_service.app.config['CORS_ORIGINS'] = ['https://client.example']
+            allowed = self.app.options('/images/',
+                                       headers={
+                                           'Origin': 'https://client.example',
+                                           'Access-Control-Request-Method': 'POST',
+                                           'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                                       })
+            self.assertEqual(200, allowed.status_code)
+            self.assertEqual('https://client.example', allowed.headers.get('Access-Control-Allow-Origin'))
+            self.assertIn('Authorization', allowed.headers.get('Access-Control-Allow-Headers', ''))
+
+            other = self.app.options('/images/',
+                                     headers={
+                                         'Origin': 'https://evil.example',
+                                         'Access-Control-Request-Method': 'POST',
+                                         'Access-Control-Request-Headers': 'Authorization'
+                                     })
+            self.assertIsNone(other.headers.get('Access-Control-Allow-Origin'))
+        finally:
+            image_service.app.config['CORS_ORIGINS'] = original
 
     def _delete_image(self, image_name, image_extension, origin=None, auth_token=None):
         origin = self.origin if origin is None else origin
@@ -463,3 +490,27 @@ class TestImageService(unittest.TestCase):
         resp = self._get_image('ghost_image', 'png', mode='crop', size=(100, 100))
         self.assertEqual(404, resp.status_code)
         self.assertEqual([], os.listdir(self.storage_directory))
+
+    def test_invalid_image_names_handled_without_500(self):
+        for bad_name in ('_leading', 'has space', '!!!', 'foo..bar'):
+            with open(self._test_image_path('png_image.png'), 'rb') as png_image:
+                put_resp = self._put_image(png_image, '%s.png' % bad_name)
+                self.assertEqual(400, put_resp.status_code, msg='PUT failed for %r' % bad_name)
+            self.assertEqual(404, self._get_image(bad_name, 'png').status_code)
+            self.assertEqual(404, self._get_image(bad_name, 'png', mode='crop', size=(100, 100)).status_code)
+            self.assertEqual(404, self._delete_image(bad_name, 'png').status_code)
+
+    def test_runserver_debug_disabled_by_default(self):
+        import runserver
+        saved = os.environ.pop('FLASK_DEBUG', None)
+        try:
+            self.assertFalse(runserver.is_debug_enabled())
+            os.environ['FLASK_DEBUG'] = 'true'
+            self.assertTrue(runserver.is_debug_enabled())
+            os.environ['FLASK_DEBUG'] = '0'
+            self.assertFalse(runserver.is_debug_enabled())
+        finally:
+            if saved is None:
+                os.environ.pop('FLASK_DEBUG', None)
+            else:
+                os.environ['FLASK_DEBUG'] = saved

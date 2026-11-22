@@ -218,3 +218,37 @@ class TestFileSystemStorage(unittest.TestCase):
         self.assertRaises(NotFound, self.storage.get, 'nonexistent', 'png', 'crop', (100, 100))
         self.assertRaises(NotFound, self.storage.delete, 'nonexistent', 'png', 'crop', (100, 100))
         self.assertEqual([], os.listdir(self.storage_dir))
+
+    def test_invalid_and_traversal_names_rejected(self):
+        invalid_names = ['', '!!!', '..', '../escape', 'a/b', '_prefixed', 'my image', 'foo..bar', 'trailing.']
+        for bad_name in invalid_names:
+            self.assertRaises(ValueError, self.storage.exists, bad_name, 'png')
+            self.assertRaises(ValueError, self.storage.get, bad_name, 'png')
+            self.assertRaises(ValueError, self.storage.save, bad_name, 'png', b'data')
+            self.assertRaises(ValueError, self.storage.delete, bad_name, 'png')
+
+    def test_concurrent_save_unique_no_overwrites(self):
+        from concurrent.futures import ThreadPoolExecutor
+        payloads = [b'payload-%03d' % i for i in range(12)]
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            names = list(pool.map(lambda data: self.storage.save_unique('race', 'png', data), payloads))
+        self.assertEqual(len(payloads), len(set(names)))
+        stored_contents = set()
+        for name in names:
+            with self.storage.get(name, 'png') as f:
+                stored_contents.add(f.read())
+        self.assertEqual(set(payloads), stored_contents)
+
+    def test_concurrent_manipulated_get_atomic(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with open(self._test_image_path('png_image.png'), 'rb') as png_file:
+            self.storage.save('concurrent_img', 'png', png_file.read())
+
+        def fetch_crop(_):
+            with self.storage.get('concurrent_img', 'png', 'crop', (150, 150)) as f:
+                with PILImage.open(f) as im:
+                    return im.size
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            sizes = list(pool.map(fetch_crop, range(10)))
+        self.assertEqual([(150, 150)] * 10, sizes)
